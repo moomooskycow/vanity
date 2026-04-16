@@ -301,4 +301,65 @@ const revealObserver = new IntersectionObserver(
   { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
 );
 
-document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+function observeReveal(element) {
+  revealObserver.observe(element);
+}
+
+function createProjectCard(project) {
+  const card = document.createElement('a');
+  card.href = project.url;
+  card.target = '_blank';
+  card.rel = 'noopener';
+  card.className = 'project reveal';
+
+  const title = document.createElement('h4');
+  title.textContent = project.name;
+
+  const blurb = document.createElement('p');
+  blurb.textContent = project.blurb;
+
+  card.append(title, blurb);
+  return card;
+}
+
+function renderProjectStatus(container, message, isError = false) {
+  const status = document.createElement('p');
+  status.className = isError ? 'projects-status projects-status-error' : 'projects-status';
+  status.textContent = message;
+  container.replaceChildren(status);
+}
+
+async function loadProjects() {
+  const container = document.getElementById('projects-grid');
+  if (!container) {
+    return;
+  }
+
+  try {
+    const response = await fetch('./projects.json');
+    if (!response.ok) {
+      throw new Error(`Unable to load projects (${response.status})`);
+    }
+
+    const projects = await response.json();
+    if (!Array.isArray(projects)) {
+      throw new Error('projects.json did not contain an array');
+    }
+
+    container.replaceChildren();
+    projects.forEach((project) => {
+      const card = createProjectCard(project);
+      container.append(card);
+      observeReveal(card);
+    });
+  } catch (error) {
+    console.error(error);
+    const message = window.location.protocol === 'file:'
+      ? 'Project archive loads over HTTP. Run a local server for full local development.'
+      : 'Project archive is unavailable right now.';
+    renderProjectStatus(container, message, true);
+  }
+}
+
+document.querySelectorAll('.reveal').forEach(observeReveal);
+loadProjects();

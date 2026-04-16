@@ -1,7 +1,7 @@
 # Real design tokens — CSS as single source of truth
 
 Priority: high
-Status: ready
+Status: shipped
 Estimate: S
 
 ## Goal
@@ -33,3 +33,9 @@ const accent = root.getPropertyValue('--accent').trim();
 ```
 
 Prereq for item 004 (theme system) — themes flip CSS vars; if JS hardcodes colors the themes won't actually theme the canvas.
+
+## What Was Built
+- Shipped on `master` in commit `5a6a49f` on 2026-04-16.
+- `script.js` now reads lattice runtime tokens from CSS via `getComputedStyle`, including `--connection-radius`, `--node-color`, and accent-derived alpha controls.
+- `styles.css` now owns the lattice token set, including reconciled `--connection-radius: 200` and shared grid-background rules for `.featured::before`, `.project::before`, `#services::before`, and `.grid-bg`.
+- Recent commit evidence already states this item as delivered, so this file is archived to keep `flywheel pick` from selecting stale work.

@@ -464,6 +464,17 @@ section {
   gap: 1.5rem;
 }
 
+.projects-status,
+.projects-fallback {
+  grid-column: 1 / -1;
+  color: var(--text-dim);
+  font-size: 0.9375rem;
+}
+
+.projects-status-error {
+  color: var(--accent);
+}
+
 .project {
   display: block;
   background: var(--bg);

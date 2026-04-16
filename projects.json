@@ -1,0 +1,92 @@
+[
+  {
+    "name": "cerberus",
+    "url": "https://github.com/misty-step/cerberus",
+    "blurb": "Multi-agent AI code review council. Five parallel agents gate every PR."
+  },
+  {
+    "name": "thinktank",
+    "url": "https://github.com/misty-step/thinktank",
+    "blurb": "Programmable cognition. Route prompts across models in one CLI."
+  },
+  {
+    "name": "agent-skills",
+    "url": "https://github.com/phrazzld/agent-skills",
+    "blurb": "Portable skill library for AI coding agents. Debugging, PR workflows, design systems."
+  },
+  {
+    "name": "bitterblossom",
+    "url": "https://github.com/misty-step/bitterblossom",
+    "blurb": "Agent fleet orchestration on Fly.io. Declarative sprite provisioning."
+  },
+  {
+    "name": "canary",
+    "url": "https://github.com/misty-step/canary",
+    "blurb": "Self-hosted observability for agent-driven infrastructure."
+  },
+  {
+    "name": "heartbeat",
+    "url": "https://www.heartbeat.engineering/",
+    "blurb": "Set-and-forget uptime monitoring. Beautiful status pages."
+  },
+  {
+    "name": "gitpulse",
+    "url": "https://www.gitpulse.app/",
+    "blurb": "GitHub analytics with AI summaries. Every claim cited."
+  },
+  {
+    "name": "vox",
+    "url": "https://github.com/misty-step/vox",
+    "blurb": "Invisible macOS editor. Hotkey dictation to clean text."
+  },
+  {
+    "name": "time is money",
+    "url": "https://timeismoney-splash.vercel.app/",
+    "blurb": "Chrome extension that converts prices into hours of work."
+  },
+  {
+    "name": "scry",
+    "url": "https://www.scry.study/",
+    "blurb": "Paste anything, get flashcards. Spaced repetition."
+  },
+  {
+    "name": "volume",
+    "url": "https://www.volume.fitness/",
+    "blurb": "Workout tracking without the cruft."
+  },
+  {
+    "name": "conviction",
+    "url": "https://github.com/misty-step/conviction",
+    "blurb": "Thesis-based portfolio tracker. See beliefs, not just assets."
+  },
+  {
+    "name": "chrondle",
+    "url": "https://www.chrondle.app/",
+    "blurb": "The history nerd's Wordle. Six events, one year."
+  },
+  {
+    "name": "caesar in a year",
+    "url": "https://www.caesarinayear.com/",
+    "blurb": "Daily Latin micro-lessons. Zero to Gallic Wars."
+  },
+  {
+    "name": "bibliomnomnom",
+    "url": "https://www.bibliomnomnom.com/",
+    "blurb": "Private-first book tracking. No algorithms."
+  },
+  {
+    "name": "sploot",
+    "url": "https://github.com/misty-step/sploot",
+    "blurb": "Browser extension for effortless tab management."
+  },
+  {
+    "name": "vibe machine",
+    "url": "https://vibe-machine-eight.vercel.app/",
+    "blurb": "Audio-reactive visuals. Drop a track, zone out."
+  },
+  {
+    "name": "linejam",
+    "url": "https://linejam.vercel.app/",
+    "blurb": "Pass-the-poem party game for friends."
+  }
+]

@@ -6,4 +6,5 @@
 .design-catalogue/
 experiments/
 .claude/launch.json
+.spellbook/
 backlog.d/_cycles/

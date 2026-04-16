@@ -9,20 +9,25 @@ Personal portfolio site. Pure HTML, CSS, and vanilla JavaScript—no build step,
 ## Development
 
 ```bash
-# Option 1: Open directly
-open index.html
-
-# Option 2: Local server with live reload
+# Recommended: local server so projects.json can be fetched
 npx serve .
+
+# Quick layout-only check
+open index.html
 ```
+
+Direct `file://` opens are now partial-fidelity only: browsers block the
+runtime `fetch('./projects.json')`, so the projects section shows a fallback
+message unless you use HTTP.
 
 ## Architecture
 
-Three files, single responsibility each:
+Four files, single responsibility each:
 
 - `index.html` — Single-page structure with semantic sections (hero, projects, services, contact)
 - `styles.css` — CSS custom properties for theming; light/dark via `[data-theme="dark"]`
-- `script.js` — Theme toggle (localStorage), smooth scroll, reveal-on-scroll, scroll progress bar, lattice canvas animation in hero + contact
+- `script.js` — Theme toggle (localStorage), project rendering from JSON, reveal-on-scroll, scroll progress bar, lattice canvas animation in hero + contact
+- `projects.json` — Project card data rendered into the grid at runtime
 
 ## Design System
 
