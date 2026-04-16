@@ -1,26 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="lattice">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Phaedrus</title>
-  <meta name="description" content="Software engineer and builder. Rapid prototyping, AI integration, and full-stack development.">
+  <meta name="description" content="Independent systems engineering. I build agents, the tools to build agents, and the tools to build the tools.">
+  <script>
+    (() => {
+      const key = 'phaedrus-theme';
+      const validThemes = ['editorial', 'contractor', 'lattice'];
+      const params = new URLSearchParams(window.location.search);
+      const forcedTheme = params.get('theme');
+      const savedTheme = window.localStorage.getItem(key);
+      const theme = validThemes.includes(forcedTheme)
+        ? forcedTheme
+        : validThemes.includes(savedTheme)
+          ? savedTheme
+          : 'lattice';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Crimson+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Crimson+Pro:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="scroll-progress" id="scroll-progress"></div>
 
-  <header>
-    <nav>
+  <header class="site-header">
+    <nav class="site-nav">
       <a href="#" class="logo">phaedrus</a>
       <div class="nav-links">
         <a href="#projects">projects</a>
-        <a href="#services">services</a>
+        <a href="#services" id="services-nav-label">map</a>
         <a href="#contact">contact</a>
-        <button type="button" class="theme-toggle" id="theme-toggle">dark</button>
+      </div>
+      <div class="theme-picker" role="group" aria-label="Choose site theme">
+        <button type="button" class="theme-option" data-set-theme="editorial" aria-pressed="false">Editorial</button>
+        <button type="button" class="theme-option" data-set-theme="contractor" aria-pressed="false">Contractor</button>
+        <button type="button" class="theme-option" data-set-theme="lattice" aria-pressed="true">Lattice</button>
       </div>
     </nav>
   </header>
@@ -28,29 +47,45 @@
   <main>
     <section class="hero">
       <canvas class="lattice-canvas" id="hero-lattice"></canvas>
-      <div class="hero-content">
-        <div class="hero-main">
-          <h1>
-            <span class="line" id="hero-title">I build <em>things.</em></span>
-          </h1>
-        </div>
-        <div class="hero-side">
-          <p class="hero-sub">Ideas to working products, fast. Software engineer specializing in rapid prototyping and AI integration.</p>
-          <a href="#contact" class="btn">Get in touch</a>
+      <div class="hero-shell">
+        <div class="hero-content">
+          <div class="hero-copy">
+            <p class="hero-kicker reveal" id="hero-kicker">Lattice mode / agent architect</p>
+            <h1 class="hero-title" id="hero-title">I build agents,<br>their infrastructure,<br>and the tools around them.</h1>
+            <p class="hero-sub reveal" id="hero-sub">Independent systems engineering for teams that need working prototypes, reliable harnesses, and software that survives first contact.</p>
+            <div class="hero-actions reveal">
+              <a href="#contact" class="btn" id="hero-cta">Start a build</a>
+            </div>
+          </div>
+
+          <aside class="hero-note reveal">
+            <p class="hero-note-label" id="hero-note-label">Operating mode</p>
+            <p class="hero-note-body" id="hero-note">Rapid prototyping when the idea is still soft. Hard engineering when it needs to hold.</p>
+            <ul class="hero-points" id="hero-points">
+              <li>Multi-agent architecture and evaluation</li>
+              <li>Tooling, harnesses, and operator loops</li>
+              <li>From prototype to production path</li>
+            </ul>
+          </aside>
         </div>
       </div>
     </section>
 
-    <section id="projects">
-      <div class="section-inner">
-        <h2 class="section-title reveal">Projects</h2>
+    <section id="projects" class="band">
+      <div class="section-shell">
+        <div class="section-heading">
+          <p class="section-kicker reveal">Selected work</p>
+          <h2 class="section-title reveal">Systems, tools, and products with teeth.</h2>
+        </div>
 
         <a href="https://www.mistystep.io/" target="_blank" rel="noopener" class="featured reveal">
           <div class="featured-content">
+            <p class="featured-label">Studio</p>
             <h3>misty step</h3>
-            <p>Software studio for teams that ship. We build MVPs, modernize legacy systems, and automate the boring stuff.</p>
+            <p>Software studio for teams that need prototypes, agent tooling, and full-stack delivery without ceremony.</p>
+            <span class="featured-link">Visit the studio</span>
           </div>
-          <svg class="featured-logo" viewBox="0 0 36 16" xmlns="http://www.w3.org/2000/svg">
+          <svg class="featured-logo" viewBox="0 0 36 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="8" cy="8" r="8" fill="currentColor" fill-opacity="0.15" />
             <circle cx="17.6" cy="8" r="8" fill="currentColor" fill-opacity="0.35" />
             <circle cx="27.2" cy="8" r="8" fill="currentColor" fill-opacity="0.6" />
@@ -61,44 +96,57 @@
           <p class="projects-status" id="projects-status">Loading project archive...</p>
         </div>
         <noscript>
-          <p class="projects-fallback">Project archive requires JavaScript. The featured project above still works without it.</p>
+          <p class="projects-fallback">Project archive requires JavaScript. The featured studio link above still works without it.</p>
         </noscript>
       </div>
     </section>
 
     <section id="services">
-      <h2 class="section-title reveal">What I Do</h2>
-      <div class="services-grid">
-        <div class="service reveal">
-          <h3>Rapid Prototyping</h3>
-          <p>Go from idea to working product fast. I specialize in building MVPs and prototypes that help you validate concepts and learn quickly.</p>
+      <div class="section-shell section-layout">
+        <div class="section-heading section-heading-tight">
+          <p class="section-kicker reveal" id="services-kicker">Capability map</p>
+          <h2 class="section-title reveal" id="services-title">Agent architect. Independent systems engineering.</h2>
+          <p class="section-intro reveal" id="services-intro">I work where product, infrastructure, and agent behavior meet. The point is not a proof of concept. The point is a system with a clear shape and a short path to shipping.</p>
         </div>
-        <div class="service reveal">
-          <h3>AI Integration</h3>
-          <p>Incorporate AI into your product, operations, or workflow. From LLM-powered features to intelligent automation.</p>
-        </div>
-        <div class="service reveal">
-          <h3>Full-Stack Development</h3>
-          <p>End-to-end software development. Web apps, mobile apps, APIs, browser extensions — whatever the project needs.</p>
-        </div>
-        <div class="service reveal">
-          <h3>Technical Consulting</h3>
-          <p>Architecture reviews, tech stack decisions, scaling strategies. I help teams make informed technical choices.</p>
+
+        <div class="positioning-grid">
+          <div class="positioning-panel reveal">
+            <ol class="positioning-list" id="services-list">
+              <li>
+                <h3>Agent systems</h3>
+                <p>Multi-agent workflows, tool surfaces, evaluation, and control loops.</p>
+              </li>
+              <li>
+                <h3>Tooling and harnesses</h3>
+                <p>CLIs, operator consoles, review automation, and the infrastructure around agents.</p>
+              </li>
+              <li>
+                <h3>Rapid prototyping</h3>
+                <p>Tight cycles from zero to credible software, then the cleanup that keeps it from collapsing.</p>
+              </li>
+            </ol>
+          </div>
+
+          <blockquote class="positioning-quote reveal">
+            <p id="services-quote">I build agents, the tools to build agents, and the tools to build the tools.</p>
+            <cite id="services-quote-source">Current thesis</cite>
+          </blockquote>
         </div>
       </div>
     </section>
 
-    <section id="contact">
+    <section id="contact" class="band">
       <canvas class="lattice-canvas" id="contact-lattice"></canvas>
-      <div class="section-inner">
-        <h2 class="section-title reveal">Let's Work Together</h2>
-        <p class="contact-intro reveal">I'm available for contract work, consulting, and collaboration. Whether you're a startup needing to ship faster, a company looking to integrate AI, or an individual with a project idea — I'd love to hear from you.</p>
-        <a href="mailto:phaedrus.raznikov@pm.me" class="btn reveal">Say hello</a>
+      <div class="section-shell contact-shell">
+        <p class="section-kicker reveal">Contact</p>
+        <h2 class="section-title reveal" id="contact-title">Bring me the sharp edge</h2>
+        <p class="contact-intro reveal" id="contact-intro">New product, stubborn legacy system, agent infra that needs discipline, or a prototype that has to exist next week. That is the lane.</p>
+        <a href="mailto:phaedrus.raznikov@pm.me" class="btn reveal" id="contact-cta">Say hello</a>
       </div>
     </section>
   </main>
 
-  <footer>
+  <footer class="site-footer">
     <p>&copy; 2026 Phaedrus</p>
     <a href="https://github.com/phrazzld" target="_blank" rel="noopener">GitHub</a>
   </footer>

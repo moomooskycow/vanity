@@ -1,0 +1,131 @@
+{
+  "defaultTheme": "lattice",
+  "themes": {
+    "editorial": {
+      "navLabel": "practice",
+      "hero": {
+        "kicker": "Editorial mode / independent systems engineering",
+        "title": "I build <em>agents</em>,<br>their tools,<br>and the tools around the tools.",
+        "sub": "The work starts as a conversation, turns into a prototype, and ends as software with a shape you can keep.",
+        "noteLabel": "Operating note",
+        "note": "I like hard problems with human texture: messy product edges, strange operational constraints, and ideas that need form.",
+        "points": [
+          "Agent strategy translated into working software",
+          "Rapid prototypes that teach something real",
+          "Architecture with enough discipline to last"
+        ],
+        "cta": "Start a project"
+      },
+      "positioning": {
+        "kicker": "Practice",
+        "title": "Notes from the workshop",
+        "intro": "Independent systems engineering, especially when the problem refuses to stay inside one box. I work across product language, system design, and implementation until the thing is legible.",
+        "items": [
+          {
+            "title": "Agent design",
+            "body": "Tool boundaries, prompt surfaces, evaluation loops, and the operating model around them."
+          },
+          {
+            "title": "Prototype direction",
+            "body": "Fast builds that answer a real question instead of acting busy."
+          },
+          {
+            "title": "Production shape",
+            "body": "Deep modules, cleaner interfaces, fewer moving parts, and no ornamental complexity."
+          }
+        ],
+        "quote": "Build the real thing early enough to learn from it.",
+        "quoteSource": "Editorial theme"
+      },
+      "contact": {
+        "title": "Bring me the knotty version",
+        "intro": "If the brief is ambiguous, the system is new, or the software needs taste as much as speed, that is usually the right starting point.",
+        "cta": "Write me"
+      }
+    },
+    "contractor": {
+      "navLabel": "capabilities",
+      "hero": {
+        "kicker": "PHAEDRUS / DEPT. OF AUTONOMOUS SYSTEMS",
+        "title": "Independent engineering<br>for agents,<br>tooling, and infrastructure.",
+        "sub": "Rapid prototyping on request. Systems review when the stakes are higher than the org chart suggests.",
+        "noteLabel": "Current charter",
+        "note": "Useful when a team needs a sharp external operator: spec the work, build the hard slice, leave the system cleaner than it started.",
+        "points": [
+          "Agent integration and orchestration",
+          "Evaluation harnesses and operator tooling",
+          "Legacy modernization sprints with a delivery bias"
+        ],
+        "cta": "Request availability"
+      },
+      "positioning": {
+        "kicker": "Capabilities",
+        "title": "Program lines",
+        "intro": "The job is to compress decision time without lowering the bar. I join the project where ambiguity, velocity, and technical depth collide.",
+        "items": [
+          {
+            "title": "Autonomous systems",
+            "body": "Agent loops, tool calling, review councils, and task routing."
+          },
+          {
+            "title": "Rapid prototypes",
+            "body": "Build the operational slice first, prove the path, then widen the surface area."
+          },
+          {
+            "title": "Systems cleanup",
+            "body": "Refactor the sharp edges, remove shallow glue, and leave behind a simpler interface."
+          }
+        ],
+        "quote": "Agents, tooling, infrastructure. Buildable now, maintainable later.",
+        "quoteSource": "Contractor theme"
+      },
+      "contact": {
+        "title": "Need a fast systems pass?",
+        "intro": "I take scoped problems, unblock critical paths, and deliver the piece that lets the rest of the team move again.",
+        "cta": "Open a thread"
+      }
+    },
+    "lattice": {
+      "navLabel": "map",
+      "hero": {
+        "kicker": "Lattice mode / agent architect",
+        "title": "I build agents,<br>their infrastructure,<br>and the tools around them.",
+        "sub": "Independent systems engineering for teams that need working prototypes, reliable harnesses, and software that survives first contact.",
+        "noteLabel": "Operating mode",
+        "note": "Rapid prototyping when the idea is still soft. Hard engineering when it needs to hold.",
+        "points": [
+          "Multi-agent architecture and evaluation",
+          "Tooling, harnesses, and operator loops",
+          "From prototype to production path"
+        ],
+        "cta": "Start a build"
+      },
+      "positioning": {
+        "kicker": "Capability map",
+        "title": "Agent architect. Independent systems engineering.",
+        "intro": "I work where product, infrastructure, and agent behavior meet. The point is not a proof of concept. The point is a system with a clear shape and a short path to shipping.",
+        "items": [
+          {
+            "title": "Agent systems",
+            "body": "Multi-agent workflows, tool surfaces, evaluation, and control loops."
+          },
+          {
+            "title": "Tooling and harnesses",
+            "body": "CLIs, operator consoles, review automation, and the infrastructure around agents."
+          },
+          {
+            "title": "Rapid prototyping",
+            "body": "Tight cycles from zero to credible software, then the cleanup that keeps it from collapsing."
+          }
+        ],
+        "quote": "I build agents, the tools to build agents, and the tools to build the tools.",
+        "quoteSource": "Current thesis"
+      },
+      "contact": {
+        "title": "Bring me the sharp edge",
+        "intro": "New product, stubborn legacy system, agent infra that needs discipline, or a prototype that has to exist next week. That is the lane.",
+        "cta": "Say hello"
+      }
+    }
+  }
+}

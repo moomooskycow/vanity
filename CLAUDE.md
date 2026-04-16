@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Personal portfolio site. Pure HTML, CSS, and vanilla JavaScript—no build step, no dependencies.
+Personal portfolio site. Pure HTML, CSS, and vanilla JavaScript. No build step, no runtime dependencies.
 
 ## Development
 
@@ -22,21 +22,29 @@ message unless you use HTTP.
 
 ## Architecture
 
-Four files, single responsibility each:
+Five files, single responsibility each:
 
-- `index.html` — Single-page structure with semantic sections (hero, projects, services, contact)
-- `styles.css` — CSS custom properties for theming; light/dark via `[data-theme="dark"]`
-- `script.js` — Theme toggle (localStorage), project rendering from JSON, reveal-on-scroll, scroll progress bar, lattice canvas animation in hero + contact
+- `index.html` — Single-page structure with semantic sections (hero, projects, positioning, contact)
+- `styles.css` — Semantic design tokens plus theme-specific overrides for `editorial`, `contractor`, and `lattice`
+- `script.js` — Theme resolution (`?theme=` then localStorage), theme-copy rendering, project rendering, reveal-on-scroll, scroll progress bar, lattice canvas animation
 - `projects.json` — Project card data rendered into the grid at runtime
+- `themes.json` — Theme-owned copy variants for hero, positioning, and contact
 
 ## Design System
 
-CSS variables defined in `:root` and overridden in `[data-theme="dark"]`:
-- Colors: `--bg`, `--bg-alt`, `--text`, `--text-dim`, `--accent`, `--accent-rgb`, `--accent-hover`, `--border`
-- Lattice tokens (consumed by CSS and by `script.js` via `getComputedStyle`): `--grid-size-px`, `--node-radius`, `--node-color`, `--connection-radius`, `--lattice-line-alpha-max`, `--lattice-crosshair-alpha`, `--lattice-glow`, `--lattice-glow-alpha`
-- Typography: Cormorant Garamond (display) + Crimson Pro (body), loaded from Google Fonts in `index.html`
+CSS variables are defined in `:root` and overridden per theme with attribute selectors:
 
-CSS is the single source of truth for all visual constants. `script.js` reads tokens at runtime; no hardcoded color values. To change the lattice color, edit `--accent` / `--accent-rgb`; to change lattice behavior, edit the `--lattice-*` tokens. `.featured::before`, `.project::before`, `#services::before`, and the `.grid-bg` utility share one radial-gradient pattern — consumers scope `--grid-size-px` and `--node-radius` locally for size variants.
+- `[data-theme="editorial"]`
+- `[data-theme="contractor"]`
+- `[data-theme="lattice"]`
+
+The token layers are:
+
+- Core surfaces and text: `--page-bg`, `--page-bg-alt`, `--surface`, `--surface-strong`, `--text`, `--muted`, `--accent`, `--accent-rgb`, `--border`
+- Typography and layout: `--font-display`, `--font-body`, `--font-mono`, `--hero-title-size`, `--panel-radius`, `--button-radius`
+- Lattice tokens (consumed by CSS and by `script.js` via `getComputedStyle`): `--grid-size-px`, `--node-radius`, `--node-color`, `--connection-radius`, `--lattice-line-alpha-max`, `--lattice-crosshair-alpha`, `--lattice-glow`, `--lattice-glow-alpha`
+
+CSS is the single source of truth for visual constants. `script.js` reads lattice tokens at runtime, so canvas color and glow follow theme changes without hardcoded values.
 
 ## Deploy
 

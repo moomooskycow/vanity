@@ -1,36 +1,41 @@
 /*
- * Lattice System + Page Interactions
+ * Theme system, project rendering, and lattice animation.
  *
- * Architecture (Ousterhout):
- * - Lattice: deep module, simple interface, all rendering logic encapsulated
- * - Theme: single source of truth via CSS variables
- * - No shallow wrappers or pass-through layers
+ * Architecture:
+ * - CSS owns visual tokens.
+ * - themes.json owns theme copy.
+ * - script.js wires state, rendering, and motion.
  */
 
-// ==========================================================================
-// Lattice Class - Deep module for reactive grid rendering
-// ==========================================================================
+const THEME_STORAGE_KEY = 'phaedrus-theme';
+const VALID_THEMES = ['editorial', 'contractor', 'lattice'];
+const themeState = {
+  defaultTheme: 'lattice',
+  catalog: null,
+};
 
 class Lattice {
   constructor(canvas, container) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.container = container;
-
-    // Canvas constants — read from CSS (single source of truth).
-    const styles = getComputedStyle(canvas);
-    this.gridSize = parseFloat(styles.getPropertyValue('--grid-size-px')) || 100;
-    this.connectionRadius = parseFloat(styles.getPropertyValue('--connection-radius')) || 200;
-    this.nodeRadius = parseFloat(styles.getPropertyValue('--node-radius')) || 2;
-
-    // State
     this.nodes = [];
     this.mouseX = -1000;
     this.mouseY = -1000;
     this.isVisible = false;
     this.animationId = null;
+    this.resizeObserver = null;
+    this.visibilityObserver = null;
 
+    this.readTokens();
     this.init();
+  }
+
+  readTokens() {
+    const styles = getComputedStyle(this.canvas);
+    this.gridSize = parseFloat(styles.getPropertyValue('--grid-size-px')) || 96;
+    this.connectionRadius = parseFloat(styles.getPropertyValue('--connection-radius')) || 240;
+    this.nodeRadius = parseFloat(styles.getPropertyValue('--node-radius')) || 2;
   }
 
   init() {
@@ -41,16 +46,15 @@ class Lattice {
   }
 
   setupResize() {
-    const resizeObserver = new ResizeObserver(() => this.resize());
-    resizeObserver.observe(this.container);
+    this.resizeObserver = new ResizeObserver(() => this.resize());
+    this.resizeObserver.observe(this.container);
   }
 
   setupMouse() {
-    // Track mouse relative to canvas position
-    document.addEventListener('mousemove', (e) => {
+    document.addEventListener('mousemove', (event) => {
       const rect = this.canvas.getBoundingClientRect();
-      this.mouseX = e.clientX - rect.left;
-      this.mouseY = e.clientY - rect.top;
+      this.mouseX = event.clientX - rect.left;
+      this.mouseY = event.clientY - rect.top;
     }, { passive: true });
 
     document.addEventListener('mouseleave', () => {
@@ -60,17 +64,14 @@ class Lattice {
   }
 
   setupVisibility() {
-    // Only animate when visible (performance)
-    const observer = new IntersectionObserver(
-      (entries) => {
-        this.isVisible = entries[0].isIntersecting;
-        if (this.isVisible && !this.animationId) {
-          this.draw();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(this.container);
+    this.visibilityObserver = new IntersectionObserver((entries) => {
+      this.isVisible = entries[0].isIntersecting;
+      if (this.isVisible && !this.animationId) {
+        this.draw();
+      }
+    }, { threshold: 0.1 });
+
+    this.visibilityObserver.observe(this.container);
   }
 
   resize() {
@@ -79,13 +80,18 @@ class Lattice {
 
     this.canvas.width = rect.width * dpr;
     this.canvas.height = rect.height * dpr;
-    this.canvas.style.width = rect.width + 'px';
-    this.canvas.style.height = rect.height + 'px';
+    this.canvas.style.width = `${rect.width}px`;
+    this.canvas.style.height = `${rect.height}px`;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    this.ctx.scale(dpr, dpr);
     this.width = rect.width;
     this.height = rect.height;
+    this.readTokens();
+    this.createNodes();
+  }
 
+  refreshTheme() {
+    this.readTokens();
     this.createNodes();
   }
 
@@ -94,18 +100,17 @@ class Lattice {
     const cols = Math.ceil(this.width / this.gridSize) + 1;
     const rows = Math.ceil(this.height / this.gridSize) + 1;
 
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
+    for (let column = 0; column < cols; column += 1) {
+      for (let row = 0; row < rows; row += 1) {
         this.nodes.push({
-          x: i * this.gridSize,
-          y: j * this.gridSize
+          x: column * this.gridSize,
+          y: row * this.gridSize,
         });
       }
     }
   }
 
   getColors() {
-    // Re-read each frame so theme changes take effect without restart.
     const styles = getComputedStyle(this.canvas);
     return {
       node: styles.getPropertyValue('--node-color').trim(),
@@ -126,16 +131,14 @@ class Lattice {
     const colors = this.getColors();
     this.ctx.clearRect(0, 0, this.width, this.height);
 
-    // Draw nodes
-    this.nodes.forEach(node => {
+    this.nodes.forEach((node) => {
       this.ctx.beginPath();
       this.ctx.arc(node.x, node.y, this.nodeRadius, 0, Math.PI * 2);
       this.ctx.fillStyle = colors.node;
       this.ctx.fill();
     });
 
-    // Draw Manhattan connections to cursor
-    this.nodes.forEach(node => {
+    this.nodes.forEach((node) => {
       const dx = Math.abs(this.mouseX - node.x);
       const dy = Math.abs(this.mouseY - node.y);
       const manhattan = dx + dy;
@@ -147,24 +150,21 @@ class Lattice {
         this.ctx.strokeStyle = `rgba(${colors.accentRgb}, ${lineAlpha})`;
         this.ctx.lineWidth = 1;
 
-        // L-shaped path (horizontal then vertical)
         this.ctx.beginPath();
         this.ctx.moveTo(node.x, node.y);
         this.ctx.lineTo(this.mouseX, node.y);
         this.ctx.lineTo(this.mouseX, this.mouseY);
         this.ctx.stroke();
 
-        // Glow in dark mode
         if (colors.glow) {
           this.ctx.shadowColor = `rgba(${colors.accentRgb}, ${colors.glowAlpha})`;
-          this.ctx.shadowBlur = 4;
+          this.ctx.shadowBlur = 6;
           this.ctx.stroke();
           this.ctx.shadowBlur = 0;
         }
       }
     });
 
-    // Crosshair
     this.ctx.strokeStyle = `rgba(${colors.accentRgb}, ${colors.crosshairAlpha})`;
     this.ctx.lineWidth = 1;
     this.ctx.setLineDash([5, 5]);
@@ -183,126 +183,217 @@ class Lattice {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
     }
-  }
-}
-
-// ==========================================================================
-// Initialize Lattices
-// ==========================================================================
-
-const heroCanvas = document.getElementById('hero-lattice');
-const heroSection = document.querySelector('.hero');
-if (heroCanvas && heroSection) {
-  new Lattice(heroCanvas, heroSection);
-}
-
-const contactCanvas = document.getElementById('contact-lattice');
-const contactSection = document.getElementById('contact');
-if (contactCanvas && contactSection) {
-  new Lattice(contactCanvas, contactSection);
-}
-
-// ==========================================================================
-// Theme Toggle
-// ==========================================================================
-
-const themeToggle = document.getElementById('theme-toggle');
-if (themeToggle) {
-  const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-  // Get effective theme (saved preference or system)
-  const getEffectiveTheme = () => {
-    const saved = localStorage.getItem('theme');
-    if (saved) return saved;
-    return darkQuery.matches ? 'dark' : 'light';
-  };
-
-  // Update button text to show opposite of current theme
-  const updateButton = () => {
-    themeToggle.textContent = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
-  };
-
-  // Apply saved preference only (let CSS handle system default)
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme) {
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  }
-  updateButton();
-
-  // Toggle saves explicit preference
-  themeToggle.addEventListener('click', () => {
-    const newTheme = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    updateButton();
-  });
-
-  // Listen for system theme changes (only matters if no saved preference)
-  darkQuery.addEventListener('change', () => {
-    if (!localStorage.getItem('theme')) {
-      updateButton();
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
     }
-  });
-}
-
-// ==========================================================================
-// Scroll Progress
-// ==========================================================================
-
-const scrollProgress = document.getElementById('scroll-progress');
-if (scrollProgress) {
-  window.addEventListener('scroll', () => {
-    const scrollTop = window.scrollY;
-    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-    scrollProgress.style.width = (scrollTop / docHeight) * 100 + '%';
-  }, { passive: true });
-}
-
-// ==========================================================================
-// Character Animation for Hero Title
-// ==========================================================================
-
-const heroTitle = document.getElementById('hero-title');
-if (heroTitle) {
-  const text = heroTitle.innerHTML;
-  let html = '';
-  let delay = 0;
-
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === '<') {
-      // Handle HTML tags (like <em>)
-      const endTag = text.indexOf('>', i);
-      const tag = text.substring(i, endTag + 1);
-      html += tag;
-      i = endTag;
-    } else {
-      const char = text[i] === ' ' ? '&nbsp;' : text[i];
-      const delayMs = 0.1 + delay * 0.04;
-      html += `<span class="char" style="animation-delay:${delayMs}s">${char}</span>`;
-      if (text[i] !== ' ') delay++;
+    if (this.visibilityObserver) {
+      this.visibilityObserver.disconnect();
     }
   }
-
-  heroTitle.innerHTML = html;
 }
 
-// ==========================================================================
-// Reveal on Scroll
-// ==========================================================================
-
-const revealObserver = new IntersectionObserver(
-  (entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('revealed');
-      }
-    });
-  },
-  { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-);
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('revealed');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 
 function observeReveal(element) {
+  if (!element) {
+    return;
+  }
   revealObserver.observe(element);
+}
+
+const lattices = [];
+
+function initLattice(canvasId, containerSelector) {
+  const canvas = document.getElementById(canvasId);
+  const container = document.querySelector(containerSelector);
+
+  if (canvas && container) {
+    lattices.push(new Lattice(canvas, container));
+  }
+}
+
+function isValidTheme(theme) {
+  return VALID_THEMES.includes(theme);
+}
+
+function getForcedTheme() {
+  const forcedTheme = new URLSearchParams(window.location.search).get('theme');
+  return isValidTheme(forcedTheme) ? forcedTheme : null;
+}
+
+function getStoredTheme() {
+  const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  return isValidTheme(savedTheme) ? savedTheme : null;
+}
+
+function getCurrentTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  return isValidTheme(currentTheme) ? currentTheme : themeState.defaultTheme;
+}
+
+function resolveInitialTheme() {
+  return getForcedTheme() || getStoredTheme() || themeState.defaultTheme;
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element && typeof value === 'string') {
+    element.textContent = value;
+  }
+}
+
+function setHTML(id, value) {
+  const element = document.getElementById(id);
+  if (element && typeof value === 'string') {
+    element.innerHTML = value;
+  }
+}
+
+function animateHeroTitle(rawHtml) {
+  const heroTitle = document.getElementById('hero-title');
+  if (!heroTitle) {
+    return;
+  }
+
+  let animatedHtml = '';
+  let wordBuffer = '';
+  let delay = 0;
+
+  const flushWord = () => {
+    if (!wordBuffer) {
+      return;
+    }
+
+    let renderedWord = '';
+    for (const character of wordBuffer) {
+      const delaySeconds = 0.08 + delay * 0.025;
+      renderedWord += `<span class="char" style="animation-delay:${delaySeconds}s">${character}</span>`;
+      delay += 1;
+    }
+
+    animatedHtml += `<span class="word">${renderedWord}</span>`;
+    wordBuffer = '';
+  };
+
+  for (let index = 0; index < rawHtml.length; index += 1) {
+    if (rawHtml[index] === '<') {
+      flushWord();
+      const endTag = rawHtml.indexOf('>', index);
+      if (endTag === -1) {
+        break;
+      }
+      animatedHtml += rawHtml.substring(index, endTag + 1);
+      index = endTag;
+      continue;
+    }
+
+    if (/\s/.test(rawHtml[index])) {
+      flushWord();
+      animatedHtml += rawHtml[index];
+      continue;
+    }
+
+    wordBuffer += rawHtml[index];
+  }
+
+  flushWord();
+  heroTitle.innerHTML = animatedHtml;
+}
+
+function renderHeroPoints(points) {
+  const container = document.getElementById('hero-points');
+  if (!container || !Array.isArray(points)) {
+    return;
+  }
+
+  const items = points.map((point) => {
+    const item = document.createElement('li');
+    item.textContent = point;
+    return item;
+  });
+
+  container.replaceChildren(...items);
+}
+
+function renderServices(items) {
+  const container = document.getElementById('services-list');
+  if (!container || !Array.isArray(items)) {
+    return;
+  }
+
+  const renderedItems = items.map((item) => {
+    const listItem = document.createElement('li');
+    const heading = document.createElement('h3');
+    const body = document.createElement('p');
+
+    heading.textContent = item.title;
+    body.textContent = item.body;
+
+    listItem.append(heading, body);
+    return listItem;
+  });
+
+  container.replaceChildren(...renderedItems);
+}
+
+function renderTheme(themeKey) {
+  if (!themeState.catalog) {
+    return;
+  }
+
+  const theme = themeState.catalog[themeKey];
+  if (!theme) {
+    return;
+  }
+
+  setText('services-nav-label', theme.navLabel);
+  setText('hero-kicker', theme.hero.kicker);
+  animateHeroTitle(theme.hero.title);
+  setText('hero-sub', theme.hero.sub);
+  setText('hero-note-label', theme.hero.noteLabel);
+  setText('hero-note', theme.hero.note);
+  renderHeroPoints(theme.hero.points);
+  setText('hero-cta', theme.hero.cta);
+
+  setText('services-kicker', theme.positioning.kicker);
+  setText('services-title', theme.positioning.title);
+  setText('services-intro', theme.positioning.intro);
+  renderServices(theme.positioning.items);
+  setText('services-quote', theme.positioning.quote);
+  setText('services-quote-source', theme.positioning.quoteSource);
+
+  setText('contact-title', theme.contact.title);
+  setText('contact-intro', theme.contact.intro);
+  setText('contact-cta', theme.contact.cta);
+}
+
+function updateThemeButtons(activeTheme) {
+  document.querySelectorAll('[data-set-theme]').forEach((button) => {
+    const isActive = button.dataset.setTheme === activeTheme;
+    button.setAttribute('aria-pressed', String(isActive));
+    button.classList.toggle('is-active', isActive);
+  });
+}
+
+function applyTheme(theme, { persist = true } = {}) {
+  if (!isValidTheme(theme)) {
+    return;
+  }
+
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeButtons(theme);
+  renderTheme(theme);
+  lattices.forEach((lattice) => lattice.refreshTheme());
+
+  if (persist) {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }
 }
 
 function createProjectCard(project) {
@@ -361,5 +452,79 @@ async function loadProjects() {
   }
 }
 
-document.querySelectorAll('.reveal').forEach(observeReveal);
-loadProjects();
+async function loadThemes() {
+  try {
+    const response = await fetch('./themes.json');
+    if (!response.ok) {
+      throw new Error(`Unable to load themes (${response.status})`);
+    }
+
+    const payload = await response.json();
+    if (!payload || typeof payload !== 'object' || !payload.themes) {
+      throw new Error('themes.json did not contain a themes object');
+    }
+
+    return payload;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+function initScrollProgress() {
+  const scrollProgress = document.getElementById('scroll-progress');
+  if (!scrollProgress) {
+    return;
+  }
+
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    scrollProgress.style.width = `${progress}%`;
+  }, { passive: true });
+}
+
+function initThemePicker() {
+  document.querySelectorAll('[data-set-theme]').forEach((button) => {
+    button.addEventListener('click', () => {
+      applyTheme(button.dataset.setTheme);
+    });
+  });
+}
+
+async function boot() {
+  initLattice('hero-lattice', '.hero');
+  initLattice('contact-lattice', '#contact');
+  initScrollProgress();
+  initThemePicker();
+  document.querySelectorAll('.reveal').forEach(observeReveal);
+
+  const initialTheme = resolveInitialTheme();
+  updateThemeButtons(initialTheme);
+  animateHeroTitle(document.getElementById('hero-title')?.innerHTML || '');
+  applyTheme(initialTheme, { persist: false });
+
+  const [themePayload] = await Promise.all([
+    loadThemes(),
+    loadProjects(),
+  ]);
+
+  if (themePayload?.defaultTheme && isValidTheme(themePayload.defaultTheme)) {
+    themeState.defaultTheme = themePayload.defaultTheme;
+  }
+
+  if (themePayload?.themes) {
+    themeState.catalog = themePayload.themes;
+    renderTheme(getCurrentTheme());
+  }
+
+  if (!getForcedTheme() && !getStoredTheme()) {
+    document.documentElement.setAttribute('data-theme', themeState.defaultTheme);
+    updateThemeButtons(themeState.defaultTheme);
+    renderTheme(themeState.defaultTheme);
+    lattices.forEach((lattice) => lattice.refreshTheme());
+  }
+}
+
+boot();

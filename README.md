@@ -16,11 +16,30 @@ from `file://`.
 ## Structure
 
 ```
-index.html    # Single-page structure
-styles.css    # All styles with CSS custom properties
-script.js     # Theme toggle, lattice, scroll effects, project rendering
+index.html    # Single-page structure and theme picker
+styles.css    # Semantic tokens plus Editorial / Contractor / Lattice themes
+script.js     # Theme resolution, theme-copy rendering, lattice, scroll effects
 projects.json # Project data rendered into the grid at runtime
+themes.json   # Theme-owned copy for hero, positioning, and contact
 ```
+
+## Theme System
+
+The site ships three curated themes:
+
+- `editorial`
+- `contractor`
+- `lattice`
+
+Theme selection resolves in this order:
+
+1. `?theme=<name>` query param
+2. saved `localStorage` preference
+3. default theme from `themes.json`
+
+Each theme changes both design tokens and copy. `script.js` reads `themes.json`
+at runtime, applies the matching copy, and keeps the lattice canvas in sync by
+reading CSS custom properties after every theme switch.
 
 ## Deploy
 
