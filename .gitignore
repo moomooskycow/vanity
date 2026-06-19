@@ -9,6 +9,7 @@ explore/
 bio.md
 .pi/
 test-results/
+coverage/
 .claude/launch.json
 .spellbook/
 backlog.d/_cycles/

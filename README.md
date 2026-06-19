@@ -11,9 +11,17 @@ imported from the CDN pinned to a release tag.
 # Static preview
 python3 -m http.server 4173
 
-# Structural gate
-node --test
+# Host-agnostic repository gate
+./scripts/ci.sh
+
+# Coverage report artifacts
+./scripts/ci.sh coverage
 ```
+
+The gate runs JavaScript syntax checks, `vercel.json` parsing, Node's built-in
+test runner, and a local `gitleaks` scan when the CLI is installed. GitHub
+Actions delegates to the same script and uploads V8 coverage artifacts from the
+coverage mode.
 
 ## Conventions
 
