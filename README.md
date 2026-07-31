@@ -11,8 +11,17 @@ imported from the CDN pinned to a release tag.
 # Static preview
 python3 -m http.server 4173
 
-# Structural gate
+# Aggregate local gate
+./scripts/check.sh
+
+# Focused structural tests
 node --test
+```
+
+Optional local hook setup:
+
+```bash
+git config core.hooksPath .githooks
 ```
 
 ## Conventions
@@ -21,6 +30,8 @@ node --test
   quote typewriter.
 - `quotes.js` is the generated daybook quote pool for the footer colophon.
 - `canary-observer.js` and `api/` provide lightweight browser-error telemetry.
+- `scripts/check.sh` is the host-agnostic CI entrypoint used locally, by the
+  pre-push hook, and by GitHub Actions.
 - Stay inside the system: one accent instance (the misty step link), no
   page scrolling, no new font sizes, no decoration.
 - To upgrade the design system, bump the pinned tag in the jsdelivr

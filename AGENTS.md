@@ -18,7 +18,10 @@ asks for a redesign. Project and studio content belongs on Misty Step.
 # Static preview
 python3 -m http.server 4173
 
-# Structural gate
+# Aggregate local gate
+./scripts/check.sh
+
+# Focused structural tests
 node --test
 ```
 
@@ -38,6 +41,8 @@ server when browser QA must include `/api/*`.
 - `api/canary-config.js` - Vercel function that exposes only the public Canary
   ingest key.
 - `api/health.js` - Vercel health function for Canary key configuration.
+- `scripts/check.sh` - Host-agnostic local CI gate used by hooks and GitHub
+  Actions.
 - `test/*.test.js` - Node test-runner coverage for the API and observer
   contracts.
 

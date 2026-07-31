@@ -45,7 +45,10 @@ Rules for this site:
 # Static preview
 python3 -m http.server 4173
 
-# Structural gate
+# Aggregate local gate
+./scripts/check.sh
+
+# Focused structural tests
 node --test
 ```
 
