@@ -22,12 +22,13 @@ becoming the reason the site exists.
 
 ## What Must Stay True
 
-- `index.html` owns the page structure, glue CSS, light/dark toggle, and quote
-  typewriter runtime.
-- `quotes.js` is generated from the Daybook quote pool. It should not become a
-  hand-maintained content dump.
-- `canary-observer.js` and `api/` provide lightweight telemetry support. They
-  must never make the static page fragile.
+- `index.html` owns the deployed page. `quotes.js` is generated from the
+  Daybook quote pool; regenerating it does not authorize reading or publishing
+  unrelated private Daybook material.
+- `canary-observer.js` and `api/` provide lightweight telemetry and must never
+  make the static page fragile.
+- Reserve enough quote space to avoid layout shift as the generated pool
+  changes.
 - The design system is `@misty-step/aesthetic`, imported from the pinned CDN
   release tag. Change the package and tag, then bump the pin.
 - Delivery QA uses HTTP when root-relative assets or API routes matter;
@@ -42,18 +43,3 @@ becoming the reason the site exists.
 - Package-manager or build-step complexity for a page that should remain static.
 - Telemetry becoming more important than the page it observes.
 
-## Current Bets
-
-1. Keep the deployed surface to name, ghost portrait, links, and colophon.
-2. Preserve enough quote reserve that the generated pool does not cause layout
-   shift.
-3. Treat `explore/` work as backlog or scratch until promoted.
-4. Use `node --test` as the structural gate for even small changes.
-
-## Where The Depth Lives
-
-- `AGENTS.md` is the operating contract for agents and repo changes.
-- `index.html`, `quotes.js`, `canary-observer.js`, and `api/` are the actual
-  production surface.
-- Powder tracks possible future work; it is not a license to expand the
-  page by default.
