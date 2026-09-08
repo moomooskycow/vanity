@@ -27,16 +27,3 @@ test("attributions have balanced quotation marks", () => {
     );
   }
 });
-
-test("quote pool stays within the documented footer reserve", () => {
-  const longest = window.QUOTES.reduce(
-    (max, [quote, attribution]) =>
-      quote.length > max.quote.length ? { quote, attribution } : max,
-    { quote: "", attribution: "" },
-  );
-
-  assert.ok(
-    longest.quote.length <= 250,
-    `longest quote is ${longest.quote.length} chars (${longest.attribution}); bump .q-foot reserve before shipping`,
-  );
-});

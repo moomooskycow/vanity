@@ -1,233 +1,444 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Phaedrus</title>
-  <meta name="description" content="I spend my days getting agents to do real work, and my mornings running. The serious software lives at Misty Step.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cstyle%3Etext{font:700%2021px%20Geist,Helvetica,Arial,sans-serif;fill:%23151515}%40media(prefers-color-scheme:dark){text{fill:%23ededed}}%3C/style%3E%3Ctext%20x='16'%20y='17'%20dominant-baseline='central'%20text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://phaedrus.io/">
-  <meta property="og:title" content="Phaedrus">
-  <meta property="og:description" content="I spend my days getting agents to do real work, and my mornings running. The serious software lives at Misty Step.">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Phaedrus">
-  <meta name="twitter:description" content="I spend my days getting agents to do real work, and my mornings running. The serious software lives at Misty Step.">
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fcfcfc">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
-  <script>
-    (() => {
-      try {
-        const saved = localStorage.getItem('ae-mode');
-        if (saved === 'dark' || saved === 'light') {
-          document.documentElement.dataset.aeMode = saved;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phaedrus</title>
+    <meta
+      name="description"
+      content="Making things. Beautiful, useful, or just fun."
+    />
+    <link rel="canonical" href="https://phaedrus.io/" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20fill='%232643d0'/%3E%3Ctext%20x='16'%20y='17'%20dominant-baseline='central'%20text-anchor='middle'%20fill='%23fcfcfc'%20style='font:600%2021px%20Arial,sans-serif'%3EP%3C/text%3E%3C/svg%3E"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://phaedrus.io/" />
+    <meta property="og:site_name" content="Phaedrus" />
+    <meta property="og:title" content="Phaedrus" />
+    <meta
+      property="og:description"
+      content="Making things. Beautiful, useful, or just fun."
+    />
+    <meta
+      property="og:image"
+      content="https://phaedrus.io/assets/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Phaedrus. Making things. Beautiful, useful, or just fun."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Phaedrus" />
+    <meta
+      name="twitter:description"
+      content="Making things. Beautiful, useful, or just fun."
+    />
+    <meta
+      name="twitter:image"
+      content="https://phaedrus.io/assets/og-image.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="Phaedrus. Making things. Beautiful, useful, or just fun."
+    />
+    <meta name="theme-color" content="#2643d0" />
+    <script>
+      (() => {
+        try {
+          const saved = localStorage.getItem("ae-mode");
+          if (saved === "dark" || saved === "light") {
+            document.documentElement.dataset.aeMode = saved;
+          }
+        } catch {}
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/misty-step/aesthetic@v0.25.0/aesthetic.css"
+      integrity="sha384-SrhwZwmgRlmOW+wK+CaZcarD/NCTFypxEUIxAaMxAP4vlBX15QTCqxagjT81KBZf"
+      crossorigin="anonymous"
+    />
+    <script src="/canary-observer.js"></script>
+    <style>
+      :root {
+        --ae-font: "Space Grotesk", Arial, sans-serif;
+        --portrait-cobalt: #2643d0;
+        --portrait-paper: #fcfcfc;
+        font-synthesis: none;
+      }
+      .portrait-page,
+      .portrait-page * {
+        box-sizing: border-box;
+      }
+      .portrait-page [hidden] {
+        display: none !important;
+      }
+      .poster {
+        padding-top: clamp(24px, 2.4vw, 48px);
+        overflow: hidden;
+        color: var(--portrait-paper);
+        background: var(--portrait-cobalt);
+      }
+      .poster ::selection {
+        color: var(--portrait-cobalt);
+        background: var(--portrait-paper);
+      }
+      .poster h1 {
+        position: relative;
+        z-index: 1;
+        padding-inline: 3.2vw 4.8vw;
+        font-size: clamp(64px, 22vw, 352px);
+        font-weight: 600;
+        letter-spacing: -0.085em;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .portrait {
+        width: min(44vw, 590px);
+        margin: -32px auto -168px;
+      }
+      .portrait img {
+        display: block;
+        width: 100%;
+        height: auto;
+        filter: brightness(0) invert(1);
+      }
+      .reading-band {
+        position: relative;
+        z-index: 2;
+        color: var(--ae-ink);
+        background: var(--ae-surface);
+      }
+      .caption {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.6fr);
+        gap: clamp(48px, 8vw, 140px);
+        width: min(100%, 1600px);
+        margin-inline: auto;
+        padding: clamp(40px, 4.5vw, 76px) clamp(24px, 5.6vw, 96px) 48px;
+      }
+      .introduction {
+        max-width: 650px;
+        font-size: clamp(26px, 2.4vw, 37px);
+        font-weight: 400;
+        letter-spacing: -0.045em;
+        line-height: 1.35;
+      }
+      .exits {
+        display: flex;
+        flex-direction: column;
+        align-self: start;
+      }
+      .exits a {
+        display: flex;
+        align-items: center;
+        gap: var(--ae-space-2);
+        min-height: 44px;
+        margin-block: 0;
+        padding-block: 12px;
+        border-bottom: 1px solid var(--ae-line);
+        font-size: 23px;
+        font-weight: 500;
+        letter-spacing: -0.035em;
+        line-height: 1.4;
+        text-decoration: none;
+      }
+      .exits a:first-child {
+        padding-top: 0;
+      }
+      .exits a:hover {
+        border-color: var(--ae-accent);
+      }
+      .exits .ae-icon {
+        flex: none;
+        width: 1em;
+        height: 1em;
+      }
+      .quote-band {
+        border-top: 1px solid var(--ae-line);
+      }
+      .quote-chyron {
+        width: min(100%, 1600px);
+        margin-inline: auto;
+        padding: 32px clamp(24px, 5.6vw, 96px) 24px;
+      }
+      /* The reserve includes multiline verse and its attribution, not just prose. */
+      .quote-copy {
+        max-width: 68ch;
+        min-height: 16rem;
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .quote-copy blockquote {
+        line-height: 1.6;
+        white-space: pre-line;
+      }
+      .quote-attribution {
+        margin-top: var(--ae-space-4);
+        color: var(--ae-ink-muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .quote-tools {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ae-space-4);
+        min-height: 44px;
+        margin-top: var(--ae-space-5);
+        font-size: 13px;
+      }
+      .quote-controls {
+        display: flex;
+        gap: var(--ae-space-2);
+      }
+      .quote-controls .ae-button {
+        min-width: 7.5em;
+      }
+      .quote-tools .ae-mode {
+        width: 44px;
+        height: 44px;
+        margin-left: auto;
+      }
+      @media (min-width: 1800px) {
+        .portrait {
+          width: 650px;
+          margin-bottom: -190px;
         }
-      } catch {}
-    })();
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/misty-step/aesthetic@v0.25.0/aesthetic.css" integrity="sha384-SrhwZwmgRlmOW+wK+CaZcarD/NCTFypxEUIxAaMxAP4vlBX15QTCqxagjT81KBZf" crossorigin="anonymous">
-  <script src="/canary-observer.js"></script>
-  <style>
-    /* site glue: the name row carries the mode toggle */
-    .name-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 2em;
-    }
-    .name-row .ae-mode { width: 1.6em; height: 1.6em; }
-    .name-row .ae-mode .ae-icon { width: 1.15em; height: 1.15em; }
-    /* the chrome link row — one species, icons lead the words */
-    .links {
-      display: flex;
-      gap: 2.2em;
-      align-items: center;
-      flex-wrap: wrap;
-      font-size: 13px;
-      margin-block: 1.8em 0;
-    }
-    .links a {
-      display: inline-flex;
-      gap: 0.5em;
-      align-items: center;
-      letter-spacing: 0.1em;
-      color: var(--ae-ink-muted);
-      text-decoration: none;
-      transition: color var(--ae-quick) var(--ae-ease);
-    }
-    .links a:hover { color: var(--ae-ink); }
-    .links .ae-icon { width: 1.1em; height: 1.1em; }
-    /* the colophon: a typewriter working through the quotes collection.
-       The footer height is reserved for the longest quote in the pool,
-       top-aligned, so nothing on the page ever moves. */
-    .q-foot {
-      min-height: 12.75em;
-      align-items: flex-start;
-      padding-top: 1.4em;
-    }
-    .q-foot .q-wrap { max-width: 100%; }
-    .q-line { margin: 0; }
-    .q-cursor {
-      display: inline-block;
-      width: 1px;
-      height: 1em;
-      background: var(--ae-ink-muted);
-      vertical-align: -0.12em;
-      margin-left: 2px;
-      animation: qblink 1.1s steps(1) infinite;
-    }
-    @keyframes qblink { 50% { opacity: 0; } }
-    @media (prefers-reduced-motion: reduce) {
-      .q-cursor { animation: none; }
-    }
-    .q-attr {
-      margin: 0.6em 0 0;
-      font-size: 12px;
-      color: var(--ae-ink-muted);
-      letter-spacing: 0.06em;
-      opacity: 0;
-      transition: opacity var(--ae-gentle) var(--ae-ease);
-    }
-    /* narrow viewports wrap the longest quotes onto more lines; the
-       reserve grows so the stage above never moves */
-    @media (max-width: 700px) {
-      .q-foot { min-height: 18em; }
-    }
-    /* the portrait as a ghost watermark filling the viewport.
-       sits behind the stage, very low opacity, anchored center-right. */
-    .ae-screen { position: relative; }
-    .ae-ghost {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      padding-right: 3vw;
-      pointer-events: none;
-      z-index: 0;
-    }
-    .ae-ghost svg {
-      width: 68vh;
-      height: 68vh;
-      max-width: 720px;
-      max-height: 720px;
-      fill: var(--ae-ink);
-      opacity: 0.035;
-    }
-    .ae-stage { position: relative; z-index: 1; }
-  </style>
-</head>
-<body>
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
-      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
-      <symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></symbol>
-      <symbol id="i-github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
-      <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
-      <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
-      <symbol id="i-whale" viewBox="0 0 24 24"><path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z"/><path d="M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86"/><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/><path d="M10.46 7.26C10.2 5.88 9.17 4.24 8 3h5.8a2 2 0 0 1 1.98 1.67l.23 1.4"/><path d="m16.01 17.93-.23 1.4A2 2 0 0 1 13.8 21H9.5a5.96 5.96 0 0 0 1.49-3.98"/></symbol>
-      <symbol id="i-atom" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></symbol>
-      <symbol id="i-portrait" viewBox="0 0 227 256" fill="currentColor"><g transform="translate(0,256) scale(0.1,-0.1)"><path d="M1010 2551 c-93 -30 -150 -82 -200 -181 -40 -79 -69 -106 -164 -150 -117 -54 -157 -104 -150 -182 2 -21 6 -55 8 -75 2 -21 -1 -50 -6 -64 -12 -35 -56 -76 -90 -84 -23 -6 -29 -3 -39 17 -9 21 -6 33 16 76 30 57 27 89 -10 98 -67 17 -174 -108 -210 -247 -18 -67 -12 -153 15 -213 35 -77 26 -103 -84 -266 -71 -104 -96 -149 -94 -168 5 -39 52 -66 125 -71 21 -2 25 -41 7 -86 -15 -42 -15 -46 0 -70 9 -14 21 -25 27 -25 7 0 9 -9 5 -23 -17 -56 -16 -60 26 -98 l41 -38 -10 -50 c-14 -69 -6 -106 30 -141 39 -38 68 -43 248 -44 144 -1 146 -1 182 -29 41 -31 78 -96 95 -168 11 -42 10 -157 -2 -205 -2 -12 3 -32 11 -44 21 -30 73 -23 183 25 47 20 94 39 105 41 87 21 107 24 180 30 39 4 75 6 80 6 20 0 151 -13 175 -17 94 -15 126 -15 144 -2 32 23 27 46 -16 85 -83 75 -106 102 -109 129 -9 63 -3 71 114 182 40 38 55 89 37 132 -15 35 -65 54 -104 39 -27 -10 -86 -67 -86 -83 0 -21 -42 -65 -67 -72 -57 -14 -80 61 -44 140 26 57 80 107 157 146 37 18 81 47 98 65 17 17 50 52 74 77 24 25 59 51 77 57 19 6 87 12 152 13 129 3 151 10 228 72 69 55 120 171 92 209 -24 33 -67 24 -109 -25 -31 -35 -40 -41 -48 -29 -5 8 -7 17 -5 20 2 3 6 33 9 68 7 74 23 109 81 171 51 55 74 97 81 150 7 47 -9 81 -36 81 -27 0 -225 -196 -244 -241 -8 -19 -17 -56 -20 -83 -9 -67 -27 -106 -72 -156 -66 -73 -175 -114 -189 -71 -8 27 16 63 65 95 84 55 120 134 114 247 -7 122 12 164 127 285 88 93 98 108 105 151 9 60 -16 108 -71 137 -56 29 -111 24 -196 -20 -110 -55 -176 -28 -170 71 0 11 32 49 71 86 83 77 95 110 57 151 -54 58 -182 62 -266 9 -26 -17 -57 -41 -67 -52 -27 -30 -68 -49 -104 -49 -38 0 -89 47 -91 82 -4 81 -7 100 -19 124 -8 14 -28 33 -45 42 -34 17 -166 26 -205 13z m178 -32 c41 -14 58 -44 61 -109 2 -30 9 -67 17 -83 38 -73 134 -86 202 -28 114 96 171 117 257 95 48 -12 75 -34 75 -63 0 -8 -27 -39 -61 -70 -34 -31 -67 -68 -75 -83 -32 -61 -6 -135 53 -155 38 -13 77 -7 137 24 28 14 69 28 91 31 22 2 42 6 44 8 7 6 66 -28 83 -50 21 -26 23 -78 4 -114 -8 -15 -48 -60 -90 -101 -107 -105 -128 -151 -130 -296 -1 -103 -3 -115 -28 -152 -15 -23 -44 -54 -65 -70 -70 -52 -93 -84 -87 -122 10 -56 51 -64 134 -25 65 30 124 83 152 138 20 39 23 51 33 119 4 22 11 51 16 65 11 28 201 222 218 222 17 0 13 -67 -5 -103 -9 -18 -36 -53 -59 -78 -64 -68 -84 -116 -91 -209 -9 -122 17 -141 90 -65 25 25 49 45 55 45 41 0 9 -100 -53 -165 -65 -70 -119 -88 -249 -86 -129 1 -171 -13 -232 -79 -22 -24 -51 -55 -65 -70 -14 -15 -58 -45 -98 -66 -121 -62 -183 -140 -188 -236 -2 -40 2 -53 26 -78 27 -29 39 -31 91 -15 11 4 36 32 56 63 56 90 95 111 135 75 38 -34 10 -106 -60 -153 -52 -36 -82 -87 -82 -139 0 -56 27 -100 89 -146 76 -55 75 -83 -3 -71 -83 13 -177 21 -266 20 -156 0 -213 -11 -366 -75 -53 -22 -108 -39 -123 -37 -22 3 -26 7 -23 33 9 111 9 166 -4 215 -25 96 -62 154 -121 192 -36 21 -48 23 -199 24 -136 1 -166 4 -192 19 -50 30 -55 52 -37 153 7 42 5 45 -36 83 -39 36 -41 41 -30 65 10 22 16 25 46 21 25 -4 35 -1 35 9 0 8 -4 15 -10 15 -5 1 -13 2 -17 3 -5 1 -22 6 -40 10 -45 10 -58 29 -44 63 22 55 22 88 0 111 -11 12 -27 22 -37 23 -58 2 -92 20 -92 47 0 9 44 81 98 161 111 165 117 187 80 273 -18 41 -23 71 -23 129 1 68 5 86 38 152 39 79 103 147 137 147 26 0 25 -18 -3 -71 -13 -24 -23 -50 -22 -56 2 -7 3 -20 4 -28 0 -8 12 -22 26 -31 70 -46 182 72 166 174 -3 21 -5 58 -6 84 0 62 34 98 140 147 95 44 125 72 165 151 63 125 142 180 261 180 36 0 80 -5 97 -11z"/><path d="M1042 2409 c-45 -17 -72 -59 -72 -113 0 -19 4 -37 8 -40 13 -8 131 54 142 74 26 48 -25 98 -78 79z m49 -36 c19 -19 2 -43 -47 -63 -25 -11 -47 -20 -49 -20 -2 0 1 15 6 33 15 54 61 79 90 50z"/><path d="M1060 2171 c-36 -10 -81 -25 -100 -33 -48 -20 -108 -22 -155 -5 -63 22 -111 15 -147 -21 -38 -38 -40 -77 -9 -145 32 -70 15 -132 -54 -197 -97 -90 -82 -205 32 -254 41 -19 59 -49 66 -114 6 -55 21 -84 57 -109 15 -10 25 -12 32 -5 7 7 2 15 -15 27 -29 18 -43 51 -50 113 -7 56 -28 87 -78 112 -59 31 -79 55 -79 96 0 44 11 66 68 129 24 27 49 61 54 75 16 39 13 102 -6 138 -30 58 -28 88 6 117 32 27 69 29 128 7 41 -16 120 -6 200 23 60 23 93 28 165 29 105 1 141 -4 213 -32 161 -62 296 -215 332 -377 57 -255 -85 -526 -318 -604 -44 -15 -87 -21 -154 -21 -132 -1 -207 -39 -264 -135 -46 -79 -34 -148 27 -159 26 -4 99 34 99 52 0 12 44 58 67 70 33 18 88 15 106 -6 19 -21 22 -64 7 -92 -5 -10 -37 -35 -71 -56 -69 -41 -99 -83 -99 -134 0 -40 17 -69 77 -129 48 -49 64 -86 52 -119 -9 -25 -17 -29 -69 -36 -38 -5 -80 -45 -80 -75 0 -21 -30 -51 -52 -51 -23 0 -48 33 -48 64 0 15 12 48 26 72 38 64 41 110 12 154 -31 47 -83 71 -165 75 -83 4 -102 11 -114 41 -13 35 2 64 56 108 l47 39 -6 64 -7 65 45 44 c81 79 83 154 8 212 -32 24 -44 27 -116 27 -45 -1 -104 -5 -133 -9 -97 -16 -131 38 -77 118 49 71 29 136 -48 156 -21 6 -56 15 -78 20 -49 13 -80 45 -80 83 0 41 17 67 56 83 35 15 46 34 19 34 -58 0 -111 -68 -101 -128 9 -59 54 -95 134 -108 53 -9 80 -21 91 -42 13 -25 10 -39 -23 -95 -32 -54 -30 -101 5 -133 23 -21 85 -25 154 -10 61 12 86 13 130 4 49 -10 95 -57 95 -96 0 -29 -34 -92 -49 -92 -16 0 -52 -58 -55 -87 -2 -15 0 -42 4 -60 7 -28 4 -36 -18 -55 -84 -75 -94 -93 -80 -144 12 -46 46 -64 131 -69 87 -4 118 -15 146 -51 29 -36 26 -77 -8 -138 -20 -36 -28 -62 -27 -89 3 -44 39 -87 71 -87 31 0 71 34 80 67 10 42 34 63 72 63 65 0 104 72 71 133 -6 12 -34 47 -63 79 -60 64 -66 81 -51 129 8 26 28 45 79 79 77 52 92 71 96 123 2 30 -3 43 -27 67 -58 57 -151 34 -207 -53 -21 -33 -67 -59 -89 -51 -45 17 -16 116 51 175 56 48 93 60 201 61 148 1 251 46 353 154 119 128 173 320 139 492 -39 191 -197 362 -390 423 -90 28 -217 32 -300 10z"/><path d="M1140 2077 c-3 -3 -21 -9 -40 -12 -49 -9 -142 -61 -193 -109 -243 -225 -157 -607 162 -717 238 -83 505 58 571 301 40 145 -18 325 -137 430 -43 38 -130 86 -177 97 -33 8 -180 16 -186 10z m255 -71 c115 -57 191 -153 220 -280 l14 -59 -62 60 c-77 76 -143 118 -226 144 -173 53 -347 2 -494 -146 -25 -25 -48 -45 -50 -45 -3 0 -1 19 5 43 32 143 156 274 297 314 28 8 81 11 134 9 77 -3 97 -8 162 -40z m-70 -176 c73 -45 113 -150 92 -240 -30 -130 -185 -202 -304 -141 -52 26 -81 59 -102 117 -49 132 28 274 159 291 19 3 36 6 38 8 7 7 89 -18 117 -35z m-305 -29 c-97 -138 -50 -324 98 -387 43 -18 124 -20 167 -4 54 20 106 63 133 109 23 40 27 57 27 126 0 85 -14 125 -58 165 l-22 21 28 -10 c70 -27 226 -167 228 -205 4 -65 -34 -159 -90 -227 -68 -81 -189 -139 -300 -144 -82 -3 -130 8 -208 45 -124 61 -207 174 -226 307 -4 27 2 39 52 91 46 48 170 142 188 142 3 0 -5 -13 -17 -29z"/><path d="M1235 1777 c-11 -5 -24 -16 -28 -24 -4 -7 -15 -13 -23 -13 -9 0 -29 -13 -45 -29 -39 -40 -40 -89 -1 -131 32 -35 66 -43 109 -25 35 15 57 47 59 85 1 14 7 38 13 54 6 16 9 37 6 46 -12 38 -57 56 -90 37z m49 -30 c33 -24 0 -76 -38 -61 -21 8 -26 42 -9 59 18 18 24 19 47 2z"/><path d="M1007 1416 c-15 -15 -24 -32 -21 -38 9 -13 58 36 52 52 -3 9 -13 4 -31 -14z"/><path d="M1376 1432 c-8 -14 43 -67 54 -56 6 6 1 19 -16 37 -27 29 -30 31 -38 19z"/><path d="M1090 1364 c-13 -32 -13 -44 0 -44 12 0 30 33 30 54 0 25 -20 19 -30 -10z"/><path d="M1297 1384 c-8 -9 21 -64 33 -64 13 0 13 13 -2 45 -11 25 -19 30 -31 19z"/><path d="M1197 1363 c-7 -16 -1 -57 9 -60 12 -4 23 34 16 55 -4 13 -19 16 -25 5z"/><path d="M1805 1886 c-17 -26 -11 -52 15 -66 48 -26 93 36 54 74 -22 23 -51 20 -69 -8z m59 -21 c3 -9 -1 -18 -10 -22 -19 -7 -39 11 -30 26 10 16 33 13 40 -4z"/><path d="M1467 1023 c-30 -35 -25 -78 11 -97 63 -32 122 44 72 94 -25 25 -62 26 -83 3z m71 -40 c4 -30 -31 -49 -52 -27 -19 19 -20 26 -4 42 19 19 53 10 56 -15z"/><path d="M169 2387 c-64 -32 -103 -93 -102 -160 2 -228 323 -248 359 -22 7 47 -11 98 -49 142 -54 61 -135 77 -208 40z m159 -34 c70 -52 91 -142 49 -204 -37 -54 -71 -73 -131 -73 -93 0 -157 69 -150 163 4 52 42 106 88 127 40 18 111 12 144 -13z"/><path d="M196 2258 c-34 -48 -7 -108 48 -108 19 0 40 8 49 18 22 25 21 75 -1 95 -27 25 -78 22 -96 -5z m87 -38 c3 -13 -2 -25 -15 -35 -28 -19 -58 -3 -58 30 0 47 61 52 73 5z"/><path d="M1785 876 c-56 -27 -93 -58 -119 -97 -17 -27 -17 -27 13 -48 121 -87 260 -83 364 9 73 64 71 83 -17 127 -75 39 -174 42 -241 9z m240 -40 l47 -28 -33 -34 c-78 -80 -187 -99 -293 -51 -31 14 -56 30 -56 35 0 18 63 74 103 93 62 29 168 22 232 -15z"/><path d="M1844 832 c-24 -16 -33 -48 -21 -73 22 -44 92 -32 101 17 8 40 -47 78 -80 56z m50 -38 c8 -21 -1 -34 -24 -34 -10 0 -21 4 -24 9 -10 16 5 41 24 41 10 0 21 -7 24 -16z"/></g></symbol>
-    </defs>
-  </svg>
-
-  <div class="ae-screen">
-    <div class="ae-ghost" aria-hidden="true"><svg><use href="#i-portrait"/></svg></div>
-    <main class="ae-stage">
-      <div class="ae-view">
-        <div class="name-row">
-          <h1 class="ae-name">PHAEDRUS</h1>
-          <button class="ae-mode" id="mode" aria-label="Toggle color mode">
-            <svg class="ae-icon ae-sun"><use href="#i-sun"/></svg>
-            <svg class="ae-icon ae-moon"><use href="#i-moon"/></svg>
-          </button>
+      }
+      @media (max-width: 900px) {
+        .portrait {
+          width: 55vw;
+          margin-top: -12px;
+          margin-bottom: -112px;
+        }
+        .caption {
+          grid-template-columns: minmax(0, 1fr) 190px;
+          gap: 44px;
+        }
+        .introduction {
+          font-size: 28px;
+        }
+        .exits a {
+          font-size: 20px;
+        }
+      }
+      @media (max-width: 600px) {
+        .poster {
+          padding-top: 32px;
+        }
+        .portrait {
+          width: 82vw;
+          margin-top: 18px;
+          margin-bottom: -64px;
+        }
+        .caption {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 28px;
+          padding-block: 36px;
+        }
+        .introduction {
+          font-size: 26px;
+          line-height: 1.4;
+          letter-spacing: -0.04em;
+        }
+        .exits {
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 12px 24px;
+        }
+        .exits a,
+        .exits a:first-child {
+          padding-block: 8px;
+          font-size: 18px;
+        }
+        .quote-chyron {
+          padding-block: 28px 20px;
+        }
+      }
+      @media (max-width: 350px) {
+        .poster {
+          padding-top: 24px;
+        }
+        .portrait {
+          margin-top: 20px;
+          margin-bottom: -48px;
+        }
+        .introduction {
+          font-size: 24px;
+        }
+        .exits {
+          column-gap: 22px;
+        }
+      }
+      @media (max-width: 374px) {
+        .quote-copy {
+          min-height: 23rem;
+        }
+      }
+    </style>
+  </head>
+  <body class="portrait-page">
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <symbol id="i-sun" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
+          />
+        </symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+        </symbol>
+        <symbol id="i-briefcase" viewBox="0 0 24 24">
+          <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          <rect width="20" height="14" x="2" y="6" rx="2" />
+        </symbol>
+        <symbol id="i-github" viewBox="0 0 24 24">
+          <path
+            d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"
+          />
+          <path d="M9 18c-4.51 2-5-2-7-2" />
+        </symbol>
+        <symbol id="i-mail" viewBox="0 0 24 24">
+          <rect x="2" y="4" width="20" height="16" rx="2" />
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        </symbol>
+      </defs>
+    </svg>
+    <main aria-labelledby="name">
+      <div class="poster">
+        <h1 id="name">Phaedrus</h1>
+        <figure class="portrait">
+          <img
+            src="assets/portrait-dots.svg"
+            width="227"
+            height="256"
+            alt="Halftone line-art portrait of Phaedrus."
+          />
+        </figure>
+      </div>
+      <div class="reading-band">
+        <div class="caption">
+          <p class="introduction">
+            Making things. Beautiful, useful, or just fun.
+          </p>
+          <nav class="exits" aria-label="Find me elsewhere">
+            <a href="https://www.mistystep.io/"
+              ><svg class="ae-icon" aria-hidden="true">
+                <use href="#i-briefcase" /></svg
+              >Misty Step</a
+            >
+            <a href="https://github.com/moomooskycow"
+              ><svg class="ae-icon" aria-hidden="true">
+                <use href="#i-github" /></svg
+              >GitHub</a
+            >
+            <a href="mailto:phraznikov@gmail.com"
+              ><svg class="ae-icon" aria-hidden="true">
+                <use href="#i-mail" /></svg
+              >Email</a
+            >
+          </nav>
         </div>
-        <p class="links">
-          <a href="https://www.mistystep.io/"><svg class="ae-icon"><use href="#i-briefcase"/></svg>misty step</a>
-          <a href="https://github.com/moomooskycow"><svg class="ae-icon"><use href="#i-github"/></svg>github</a>
-          <a href="mailto:phraznikov@gmail.com"><svg class="ae-icon"><use href="#i-mail"/></svg>email</a>
-        </p>
       </div>
     </main>
-    <footer class="ae-bar ae-foot q-foot">
-      <div class="q-wrap">
-        <p class="q-line"><span id="q-text"></span><span class="q-cursor" aria-hidden="true"></span></p>
-        <p class="q-attr" id="q-attr"></p>
-      </div>
+    <footer class="reading-band quote-band">
+      <section
+        class="quote-chyron"
+        id="quote-chyron"
+        aria-label="Selected quotations"
+      >
+        <figure class="quote-copy" id="quote-copy">
+          <blockquote><p id="quote-text">Avoid boredom.</p></blockquote>
+          <figcaption class="quote-attribution" id="quote-attribution">
+            Nassim Nicholas Taleb
+          </figcaption>
+        </figure>
+        <div class="quote-tools">
+          <div class="quote-controls" id="quote-controls" hidden>
+            <button
+              class="ae-button ae-button-quiet"
+              id="quote-pause"
+              type="button"
+              aria-label="Pause automatic quotes"
+              aria-controls="quote-copy"
+            >
+              Pause
+            </button>
+            <button
+              class="ae-button ae-button-quiet"
+              id="quote-next"
+              type="button"
+              aria-label="Next quote"
+              aria-controls="quote-copy"
+            >
+              Next
+            </button>
+          </div>
+          <button
+            class="ae-mode"
+            id="mode"
+            type="button"
+            aria-label="Toggle color mode"
+            hidden
+          >
+            <svg class="ae-icon ae-sun" aria-hidden="true">
+              <use href="#i-sun" />
+            </svg>
+            <svg class="ae-icon ae-moon" aria-hidden="true">
+              <use href="#i-moon" />
+            </svg>
+          </button>
+        </div>
+        <p
+          class="ae-sr"
+          id="quote-announcement"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
+      </section>
     </footer>
-  </div>
-  <script src="quotes.js"></script>
-  <script>
-    document.getElementById('mode').addEventListener('click', () => {
-      const root = document.documentElement;
-      const dark = root.dataset.aeMode
-        ? root.dataset.aeMode === 'dark'
-        : matchMedia('(prefers-color-scheme: dark)').matches;
-      const next = dark ? 'light' : 'dark';
-      root.dataset.aeMode = next;
-      try { localStorage.setItem('ae-mode', next); } catch {}
-    });
-
-    /* the colophon typewriter: works through the quotes collection.
-       Typing speed adapts to length; reduced motion gets the full
-       quote at rest. */
-    (() => {
-      const pool = window.QUOTES || [];
-      if (!pool.length) {
-        /* no collection, no colophon: collapse the reserved space */
-        document.querySelector('.q-foot').style.minHeight = '0';
-        return;
-      }
-      const textEl = document.getElementById('q-text');
-      const attrEl = document.getElementById('q-attr');
-      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      let last = -1;
-      const pick = () => {
-        let i;
-        do i = Math.floor(Math.random() * pool.length);
-        while (i === last && pool.length > 1);
-        last = i;
-        return pool[i];
-      };
-      const show = () => {
-        const [q, a] = pick();
-        if (still) {
-          textEl.textContent = q;
-          attrEl.textContent = a;
-          attrEl.style.opacity = 1;
-          return;
-        }
-        const k = Math.max(1, Math.round(q.length / 110));
-        let i = 0;
-        attrEl.style.opacity = 0;
-        const type = () => {
-          i += k;
-          textEl.textContent = q.slice(0, i);
-          if (i < q.length) setTimeout(type, 34 + Math.random() * 40);
-          else {
-            attrEl.textContent = a;
-            attrEl.style.opacity = 1;
-            setTimeout(erase, Math.min(3800 + q.length * 14, 9000));
-          }
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const mode = document.getElementById("mode");
+        const systemMode = matchMedia("(prefers-color-scheme: dark)");
+        const isDark = () =>
+          root.dataset.aeMode
+            ? root.dataset.aeMode === "dark"
+            : systemMode.matches;
+        const updateLabel = () => {
+          mode.setAttribute(
+            "aria-label",
+            isDark() ? "Use light mode" : "Use dark mode",
+          );
         };
-        const erase = () => {
-          attrEl.style.opacity = 0;
-          const back = () => {
-            i -= 4 * k;
-            textEl.textContent = q.slice(0, Math.max(i, 0));
-            if (i > 0) setTimeout(back, 14);
-            else setTimeout(show, 650);
-          };
-          setTimeout(back, 350);
-        };
-        type();
-      };
-      show();
-    })();
-  </script>
-</body>
+        mode.addEventListener("click", () => {
+          const next = isDark() ? "light" : "dark";
+          root.dataset.aeMode = next;
+          try {
+            localStorage.setItem("ae-mode", next);
+          } catch {}
+          updateLabel();
+        });
+        systemMode.addEventListener("change", updateLabel);
+        updateLabel();
+        mode.hidden = false;
+      })();
+    </script>
+    <script src="quotes.js"></script>
+    <script src="quote-chyron.js"></script>
+  </body>
 </html>

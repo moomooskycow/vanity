@@ -5,9 +5,9 @@ site intentionally changes from pointer page to a different product surface.
 
 ## What vanity Is
 
-`vanity` is the personal site for `phaedrus.io`: one full-viewport screen with a
-name, three links, and a quote colophon. It exists to be a clean pointer, not a
-portfolio, archive, blog, or studio site.
+`vanity` is the personal site for `phaedrus.io`: a cobalt portrait poster, a
+short personal line, three links, and a quote chyron. It exists to be a clean
+pointer, not a portfolio, archive, blog, or studio site.
 
 The page should give a visitor enough orientation to continue elsewhere and
 then get out of the way. Its restraint is the product. Misty Step carries the
@@ -16,19 +16,21 @@ local until deliberately promoted.
 
 ## North Star
 
-A tiny page with discipline: no scrolling, no decoration creep, no explanatory
-sprawl, one accent instance, and a quote colophon that feels alive without
-becoming the reason the site exists.
+A small page with a recognizable personal presence: expressive artwork,
+readable type, a few useful exits, and quotations that can be read at rest.
+Natural scrolling is preferable to shrinking or clipping the content.
 
 ## What Must Stay True
 
-- `index.html` owns the deployed page. `quotes.js` is generated from the
-  Daybook quote pool; regenerating it does not authorize reading or publishing
-  unrelated private Daybook material.
+- `index.html` owns the deployed composition and theme control;
+  `quote-chyron.js` owns quote interaction and autoplay. `quotes.js` is
+  generated from the Daybook quote pool; regenerating it does not authorize
+  reading or publishing unrelated private Daybook material.
 - `canary-observer.js` and `api/` provide lightweight telemetry and must never
   make the static page fragile.
-- Reserve enough quote space to avoid layout shift as the generated pool
-  changes.
+- Reserve enough quote space, including verse and attribution, to avoid layout
+  shift. User pause, reduced motion, and interrupted reading take precedence
+  over automatic rotation. No typewriter or scrolling marquee.
 - The design system is `@misty-step/aesthetic`, imported from the pinned CDN
   release tag. Change the package and tag, then bump the pin.
 - Delivery QA uses HTTP when root-relative assets or API routes matter;
@@ -36,10 +38,9 @@ becoming the reason the site exists.
 
 ## What vanity Refuses
 
-- Page scrolling.
-- New font sizes, decorative extras, theme sprawl, or a project grid.
+- Horizontal overflow, clipped essential content, and decorative motion.
+- Theme sprawl or a project grid.
 - Bio, archive, reading list, or explore surfaces unless the operator
   explicitly promotes them into the deployed product.
 - Package-manager or build-step complexity for a page that should remain static.
 - Telemetry becoming more important than the page it observes.
-

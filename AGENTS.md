@@ -1,19 +1,22 @@
 # vanity
 
-`phaedrus.io` is a personal pointer page: one full-viewport screen with a name,
-three links, and a quote colophon. Project and studio material belongs on Misty
+`phaedrus.io` is a personal pointer page: a portrait poster, one short line,
+three links, and a quote chyron. Project and studio material belongs on Misty
 Step. Read `VISION.md` when changing page scope or promoting content.
 
-- Do not add a bio, project grid, or scrolling surface without an explicit
-  operator request. The operator authors any future bio; do not invent claims
+- Do not add a bio, project grid, or additional pages without an explicit
+  operator request. The operator authors personal copy; do not invent claims
   or explanatory copy about the design.
 - Local drafts, including `bio.md` and `explore/`, stay out of the deployable
   Git surface until explicitly promoted. Private Daybook material is not
   automatically public because this site consumes a generated quote pool.
-- Preserve viewport fit, stable layout as quotes change, and reduced-motion
-  behavior. Telemetry must never make the page it observes fragile.
+- Preserve readable responsive layouts without horizontal overflow, a stable
+  quote reserve, and reduced-motion behavior. Telemetry must never make the
+  page it observes fragile.
 - The pinned `@misty-step/aesthetic` package owns the design system. Change it
   upstream and deliberately update the release pin; do not inline or fork it.
+  The approved poster composition and display typography are site-specific
+  styles in `index.html`, not a replacement for the shared package.
 
 ## Public automation boundary
 
