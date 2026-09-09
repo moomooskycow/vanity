@@ -199,13 +199,6 @@
         margin-top: var(--ae-space-5);
         font-size: 13px;
       }
-      .quote-controls {
-        display: flex;
-        gap: var(--ae-space-2);
-      }
-      .quote-controls .ae-button {
-        min-width: 7.5em;
-      }
       .quote-tools .ae-mode {
         width: 44px;
         height: 44px;
@@ -367,26 +360,6 @@
           </figcaption>
         </figure>
         <div class="quote-tools">
-          <div class="quote-controls" id="quote-controls" hidden>
-            <button
-              class="ae-button ae-button-quiet"
-              id="quote-pause"
-              type="button"
-              aria-label="Pause automatic quotes"
-              aria-controls="quote-copy"
-            >
-              Pause
-            </button>
-            <button
-              class="ae-button ae-button-quiet"
-              id="quote-next"
-              type="button"
-              aria-label="Next quote"
-              aria-controls="quote-copy"
-            >
-              Next
-            </button>
-          </div>
           <button
             class="ae-mode"
             id="mode"
@@ -402,12 +375,6 @@
             </svg>
           </button>
         </div>
-        <p
-          class="ae-sr"
-          id="quote-announcement"
-          aria-live="polite"
-          aria-atomic="true"
-        ></p>
       </section>
     </footer>
     <script>

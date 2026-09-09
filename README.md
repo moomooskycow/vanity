@@ -27,9 +27,9 @@ python3 -m http.server 4173        # or: open index.html
 - `quote-chyron.js` displays complete entries from the generated `quotes.js`
   pool, starting with Taleb's “Avoid boredom.” No Daybook research notes are
   included in the deployed site.
-- Autoplay waits 20 seconds. Pause survives Next and temporary hover, focus,
-  visibility, and motion-preference changes. Reduced motion keeps manual Next
-  but disables autoplay; only manual changes are announced to screen readers.
+- Autoplay waits 20 seconds, then walks the generated pool in order. A hidden
+  tab pauses and restarts a full reading interval. There are no Pause or Next
+  controls; reduced motion does not freeze the pool.
 - The `.quote-copy` reserve is 16rem, or 23rem below 375px. It covers all
   429 existing entries, including verse and attribution, at 320px and wider.
   After changing the generated pool, measure rendered height with loaded fonts;

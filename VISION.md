@@ -29,8 +29,9 @@ Natural scrolling is preferable to shrinking or clipping the content.
 - `canary-observer.js` and `api/` provide lightweight telemetry and must never
   make the static page fragile.
 - Reserve enough quote space, including verse and attribution, to avoid layout
-  shift. User pause, reduced motion, and interrupted reading take precedence
-  over automatic rotation. No typewriter or scrolling marquee.
+  shift. Quotes cycle on a reading interval while the page is visible. Instant
+  replacement is not a typewriter or scrolling marquee; hidden tabs pause and
+  restart a full interval.
 - The design system is `@misty-step/aesthetic`, imported from the pinned CDN
   release tag. Change the package and tag, then bump the pin.
 - Delivery QA uses HTTP when root-relative assets or API routes matter;

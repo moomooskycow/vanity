@@ -6,7 +6,9 @@ const { runInNewContext } = require("node:vm");
 
 const source = readFileSync(join(__dirname, "../quote-chyron.js"), "utf8");
 const initial = ["The initial quotation.", "First author"];
-const pool = [initial, ["A different complete quotation.", "Second author"]];
+const second = ["A different complete quotation.", "Second author"];
+const third = ["A third complete quotation.", "Third author"];
+const pool = [initial, second, third];
 
 function eventTarget(properties = {}) {
   const listeners = new Map();
@@ -23,53 +25,28 @@ function eventTarget(properties = {}) {
   };
 }
 
-function createPage({ quotes = pool, reduced = false } = {}) {
+function createPage({ quotes = pool, hidden = false } = {}) {
   const nodes = new Map(
-    [
-      "chyron",
-      "text",
-      "attribution",
-      "controls",
-      "pause",
-      "next",
-      "announcement",
-    ].map((name) => [
+    ["text", "attribution"].map((name) => [
       `quote-${name}`,
-      eventTarget({ textContent: "", hidden: false, setAttribute() {} }),
+      { textContent: "" },
     ]),
   );
   const get = (name) => nodes.get(`quote-${name}`);
-  get("text").textContent = initial[0];
-  get("attribution").textContent = initial[1];
-  get("controls").hidden = true;
-  const descendants = new Set(nodes.values());
-  let hovered = false;
-  get("chyron").matches = () => hovered;
-  get("chyron").contains = (node) => descendants.has(node);
+  get("text").textContent = `  ${initial[0]}  `;
+  get("attribution").textContent = `\n            ${initial[1]}\n          `;
   const document = eventTarget({
-    hidden: false,
-    activeElement: null,
+    hidden,
     getElementById: (id) => nodes.get(id),
   });
-  const motion = eventTarget({ matches: reduced });
   const timers = new Map();
   let now = 0;
   let timerId = 0;
-
-  function focus(node) {
-    if (document.activeElement === node) return;
-    if (document.activeElement)
-      get("chyron").emit("focusout", { relatedTarget: node });
-    document.activeElement = node;
-    if (node) get("chyron").emit("focusin");
-  }
-  for (const node of nodes.values()) node.focus = () => focus(node);
 
   runInNewContext(source, {
     document,
     window: {
       QUOTES: quotes,
-      matchMedia: () => motion,
       setTimeout(callback, delay) {
         const id = ++timerId;
         timers.set(id, { callback, at: now + delay });
@@ -82,32 +59,13 @@ function createPage({ quotes = pool, reduced = false } = {}) {
   });
 
   return {
-    quote: () => [get("text").textContent, get("attribution").textContent],
-    announcement: () => get("announcement").textContent,
-    controlsVisible: () => !get("controls").hidden,
-    pauseVisible: () => !get("pause").hidden,
-    focusedControl: () => document.activeElement,
-    nextControl: get("next"),
-    click(name) {
-      focus(get(name));
-      get(name).emit("click");
-    },
-    blur() {
-      focus(null);
-    },
-    hover(value) {
-      hovered = value;
-      get("chyron").emit(value ? "pointerenter" : "pointerleave", {
-        pointerType: "mouse",
-      });
-    },
+    quote: () => [
+      get("text").textContent.trim(),
+      get("attribution").textContent.trim(),
+    ],
     hide(value) {
       document.hidden = value;
       document.emit("visibilitychange");
-    },
-    reduce(value) {
-      motion.matches = value;
-      motion.emit("change");
     },
     tick(milliseconds) {
       const end = now + milliseconds;
@@ -127,85 +85,35 @@ function createPage({ quotes = pool, reduced = false } = {}) {
   };
 }
 
-test("explicit pause survives manual Next and temporary stop transitions", () => {
+test("autoplay walks the pool in order after each reading interval", () => {
   const page = createPage();
-  page.click("pause");
-  page.click("next");
-  const chosen = page.quote();
-  assert.notDeepEqual(chosen, initial);
-  page.hover(true);
-  page.hide(true);
-  page.reduce(true);
-  page.blur();
-  page.hide(false);
-  page.hover(false);
-  page.reduce(false);
-  page.tick(60_000);
-  assert.deepEqual(page.quote(), chosen);
-
-  page.click("pause");
-  page.blur();
   page.tick(19_999);
-  assert.deepEqual(page.quote(), chosen);
+  assert.deepEqual(page.quote(), initial);
   page.tick(1);
-  assert.notDeepEqual(page.quote(), chosen);
+  assert.deepEqual(page.quote(), second);
+  page.tick(20_000);
+  assert.deepEqual(page.quote(), third);
+  page.tick(20_000);
+  assert.deepEqual(page.quote(), initial);
 });
 
-test("reduced motion allows manual quotes and reacts while the page is open", () => {
-  const page = createPage({ reduced: true });
+test("a hidden tab pauses and restarts one full reading interval", () => {
+  const page = createPage();
+  page.tick(10_000);
+  page.hide(true);
   page.tick(60_000);
   assert.deepEqual(page.quote(), initial);
-  assert.equal(page.pauseVisible(), false);
-  page.click("next");
-  const requested = page.quote();
-  assert.notDeepEqual(requested, initial);
-  assert.equal(page.announcement(), requested.join(" "));
-  page.blur();
-  page.tick(60_000);
-  assert.deepEqual(page.quote(), requested);
-
-  page.reduce(false);
-  page.tick(20_000);
-  assert.notDeepEqual(page.quote(), requested);
-  assert.equal(page.announcement(), requested.join(" "));
-  page.click("pause");
-  page.reduce(true);
-  assert.equal(page.focusedControl(), page.nextControl);
-  page.blur();
-  page.reduce(false);
-  const paused = page.quote();
-  page.tick(60_000);
-  assert.deepEqual(page.quote(), paused);
-});
-
-test("overlapping hover, focus, and visibility stops restart one full reading interval", () => {
-  const page = createPage();
-  page.tick(19_000);
-  page.hover(true);
-  page.click("next");
-  const requested = page.quote();
-  page.hide(true);
-  page.tick(60_000);
   page.hide(false);
-  page.hover(false);
-  page.tick(60_000);
-  assert.deepEqual(page.quote(), requested);
-  page.blur();
   page.tick(19_999);
-  assert.deepEqual(page.quote(), requested);
+  assert.deepEqual(page.quote(), initial);
   page.tick(1);
-  assert.notDeepEqual(page.quote(), requested);
-  page.tick(19_999);
-  assert.notDeepEqual(page.quote(), requested);
-  page.tick(1);
-  assert.deepEqual(page.quote(), requested);
+  assert.deepEqual(page.quote(), second);
 });
 
-test("unavailable or single-entry pools leave the readable static quote without dead controls", () => {
+test("unavailable or single-entry pools leave the readable static quote", () => {
   for (const quotes of [null, [], [initial]]) {
     const page = createPage({ quotes });
     page.tick(60_000);
     assert.deepEqual(page.quote(), initial);
-    assert.equal(page.controlsVisible(), false);
   }
 });
