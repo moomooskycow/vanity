@@ -241,7 +241,7 @@ const LINK = /\[\[|\]\]|\]\(|:\/\/|[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/i;
 // A URI scheme without slashes: a lowercase scheme touching its first character
 // (mailto:, data:, tel:+1...), or a well-known one in any case. A title such as
 // "Javascript: The Good Parts" has a space after the colon and passes.
-const URI = [/(^|[^\p{L}\p{N}])[a-z][a-z0-9+.-]*:(?=[^\s\d])/u, /(^|[^\p{L}\p{N}])(?:mailto|data|tel|sms|file|javascript|obsidian):(?=\S)/iu];
+const URI = [/(^|[^\p{L}\p{N}])[a-z][a-z0-9+.-]*:(?=[^\s\d])/u, /(^|[^\p{L}\p{N}])(?:mailto|data|tel|sms|file|javascript|obsidian|https?|ftp|urn):(?=\S)/iu];
 
 // Public values that would carry private note text: a link, vault path, URI, or
 // email address, or the full name of a person with a note in the vault who is not credited as

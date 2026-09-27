@@ -169,7 +169,8 @@ ${current}
   await refuses(vault(t, log("Example Author"), { ...people, ...film("watched with [[person/Example Friend|Example Friend]]") }), /films\[0\]\.qualifier/);
   await refuses(vault(t, log("Example Author"), { ...people, ...film("watched with Пример Друг") }), /films\[0\]\.qualifier/);
   await refuses(vault(t, log("[[person/Example Friend]]"), people), /books\[0\]\.author/);
-  for (const uri of ["mailto:friend@example.org", "data:text/plain,a private note", "call tel:+15550100"]) {
+  for (const uri of ["mailto:friend@example.org", "data:text/plain,a private note", "call tel:+15550100", "tel:5550100",
+    "Data:text/plain,a private note", "HTTPS:private.example/path", "ask someone@example.org"]) {
     await refuses(vault(t, log("Example Author"), { ...people, ...film(uri) }), /films\[0\]\.qualifier/);
   }
   // Being named inside an author value does not make a friend an author.
