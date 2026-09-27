@@ -1,7 +1,17 @@
 #!/usr/bin/env node
-// Publish only the explicitly selected Daybook fields; never serialize vault notes.
+// Publish only designated Daybook fields; never serialize vault notes.
+//
+// A value reaches taste.js only from a designated slot: a reading-log table cell
+// under Book, Author, Finished, or Fav; the bold title of a Currently Reading
+// line; a taste-table cell under an approved header; a book note's `author`; or
+// a wishlist book's `title` and `authors`. Prose around those slots, including
+// everything after the dash on a Currently Reading line, is never published.
+// Generation fails, and writes nothing, if a public value would still carry a
+// vault link or path, or the name of a person who has a note in the vault but
+// is not an author of anything published.
+//
 // Usage: node scripts/generate-taste.mjs [daybook-dir]
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,6 +27,7 @@ const catalogs = {
   music: ["artist"],
   podcasts: ["title"],
 };
+const DATE = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
 
 function displayText(raw) {
   return raw.trim().replace(/\[\[([^\]]+)\]\]/g, (_, body) => {
@@ -52,29 +63,58 @@ function splitRow(row) {
   return cells;
 }
 
+// Reading-log tables are read by header name, so an added or reordered column
+// (Edition, Notes) can never land in a public field. The header is the row with
+// Book and Author cells; a comment or blank line inside a table does not end it.
+function headerColumns(cells) {
+  const index = new Map(cells.map((cell, i) => [cell.trim().toLowerCase(), i]));
+  if (!index.has("book") || !index.has("author")) return null;
+  return { book: index.get("book"), author: index.get("author"), finished: index.get("finished"), fav: index.get("fav") };
+}
+
+// The bold title of a Currently Reading line. When it is a wikilink, its target
+// names the book's note, which is where the author comes from.
+function titleSlot(slot) {
+  const link = slot.match(/\[\[([^\]]+)\]\]/);
+  if (!link) return { title: displayText(slot.replace(/[★⭐]/g, "").replace(/\(reread\)/g, "")), note: null };
+  const [target, alias] = link[1].replace(/\\\|/g, "|").split("|");
+  return { title: (alias ?? target.split("/").at(-1)).trim(), note: target.trim() };
+}
+
 function parseReadingLog(text) {
   const currentlyReading = [];
   const books = [];
   let section = null;
   let year = null;
+  let columns = null;
   for (const line of text.split(/\r?\n/)) {
     const heading = line.match(/^## (.+)$/);
     if (heading) {
       const match = heading[1].match(/^(\d{4})(?:\s*\(.*\))?$/);
       year = match ? Number(match[1]) : null;
       section = year ? "year" : heading[1] === "Currently Reading" ? "current" : null;
+      columns = null;
       continue;
     }
     if (section === "current") {
-      const match = line.trim().replace(/[★⭐]/g, "").replace(/\(reread\)/g, "")
-        .match(/^- \*\*(.+?)\*\*\s*[—–-]\s*(.+)$/);
-      if (match) currentlyReading.push({ title: displayText(match[1]), author: displayText(match[2]) });
+      // Only the bold title is a field; whatever follows it is a note.
+      const slot = line.trim().match(/^- \*\*(.+?)\*\*/)?.[1];
+      if (slot) currentlyReading.push(titleSlot(slot));
     } else if (section === "year" && line.trim().startsWith("|")) {
       const cells = splitRow(line);
-      if (cells.length < 4 || cells[0] === "Book" || /^:?-+:?$/.test(cells[0])) continue;
-      const [title, author, finished, favorite] = cells;
-      books.push({ title: displayText(title), author: displayText(author), finished,
-        favorite: /[★⭐]/.test(favorite), year });
+      if (cells.every((cell) => /^:?-+:?$/.test(cell))) continue;
+      const header = headerColumns(cells);
+      if (header) {
+        columns = header;
+        continue;
+      }
+      if (!columns) throw new Error(`reading-log ${year}: a table row comes before a Book and Author header`);
+      if (cells.length < 4) continue;
+      const cell = (name) => (columns[name] === undefined ? "" : cells[columns[name]] ?? "");
+      const finished = cell("finished").trim();
+      if (finished && !DATE.test(finished)) throw new Error(`reading-log ${year}: a Finished cell is not a date (M/D/YYYY)`);
+      books.push({ title: displayText(cell("book")), author: displayText(cell("author")), finished,
+        favorite: /[★⭐]/.test(cell("fav")), year });
     }
   }
   return { currentlyReading, books };
@@ -112,35 +152,156 @@ function scalar(value) {
   return value;
 }
 
-function parseWishlist(text) {
-  const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
-  if (!frontmatter) return null;
-  const value = (key) => frontmatter.match(new RegExp(`^${key}:[ \\t]*(.*)$`, "m"))?.[1] ?? "";
-  if (scalar(value("type")) !== "book-wish" || scalar(value("status")) !== "wishlist") return null;
-  const title = displayText(scalar(value("title")));
-  if (!title) throw new Error("Wishlist book has no title");
-  const authorValue = value("authors").trim();
-  let authors;
-  if (authorValue.startsWith("[") && !authorValue.startsWith("[[")) {
-    // YAML flow lists used by the vault template, including quoted commas.
-    authors = authorValue.slice(1, -1).match(/"(?:\\.|[^"\\])*"|'(?:''|[^'])*'|[^,]+/g) ?? [];
-  } else if (authorValue) {
-    authors = [authorValue];
-  } else {
-    const block = frontmatter.match(/^authors:[ \t]*\r?\n((?:[ \t]+- [^\n]*(?:\n|$))*)/m)?.[1] ?? "";
-    authors = block.split(/\r?\n/).filter((line) => line.trim()).map((line) => line.replace(/^\s*-\s*/, ""));
+function frontmatterOf(text) {
+  return text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1] ?? null;
+}
+
+// YAML: a quote opens a quoted scalar only at the start of the value, or of an
+// item in a flow list; inside single quotes '' is an apostrophe. Outside quotes,
+// " #" starts a comment, which is never published.
+function stripComment(raw) {
+  const text = raw.trim();
+  const flow = text.startsWith("[") && !text.startsWith("[[");
+  let quote = null;
+  let itemStart = true;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (quote) {
+      if (quote === '"' && char === "\\") i++;
+      else if (quote === "'" && char === "'" && text[i + 1] === "'") i++;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "#" && (i === 0 || /\s/.test(text[i - 1]))) return text.slice(0, i).trim();
+    if (/\s/.test(char)) continue;
+    if (itemStart && (char === '"' || char === "'")) quote = char;
+    itemStart = flow && (char === "[" || char === ",");
   }
-  return { title, authors: authors.map((author) => displayText(scalar(author))).filter(Boolean), status: "wishlist" };
+  return text;
+}
+
+// Only plain and quoted scalars and flow or block lists are read. Anything else
+// (a block scalar, tag, anchor, alias, or a flow list split across lines) stops
+// generation rather than guessing what the value is.
+function field(frontmatter, key, where) {
+  const value = stripComment(frontmatter.match(new RegExp(`^${key}:[ \\t]*(.*)$`, "m"))?.[1] ?? "");
+  if (/^[|>!&*]/.test(value) || (value.startsWith("[") && !value.startsWith("[[") && !value.endsWith("]"))) {
+    throw new Error(`${where}: \`${key}\` uses YAML syntax the generator does not read`);
+  }
+  return value;
+}
+
+// A scalar, a YAML flow list (quoted commas included), or a block list, as the
+// vault templates write them.
+function listField(frontmatter, key, where) {
+  const raw = field(frontmatter, key, where);
+  let items;
+  if (raw.startsWith("[") && !raw.startsWith("[[")) {
+    items = raw.slice(1, -1).match(/"(?:\\.|[^"\\])*"|'(?:''|[^'])*'|[^,]+/g) ?? [];
+  } else if (raw) {
+    items = [raw];
+  } else {
+    const block = frontmatter.match(new RegExp(`^${key}:[ \\t]*\\r?\\n((?:[ \\t]+- [^\\n]*(?:\\n|$))*)`, "m"))?.[1] ?? "";
+    items = block.split(/\r?\n/).filter((line) => line.trim()).map((line) => stripComment(line.replace(/^\s*-\s*/, "")));
+  }
+  return items.map((item) => displayText(scalar(item))).filter(Boolean);
+}
+
+function parseWishlist(text, file) {
+  const frontmatter = frontmatterOf(text);
+  if (!frontmatter) return null;
+  const where = `wishlist/${file}`;
+  if (scalar(field(frontmatter, "type", where)) !== "book-wish" || scalar(field(frontmatter, "status", where)) !== "wishlist") return null;
+  const title = displayText(scalar(field(frontmatter, "title", where)));
+  if (!title) throw new Error(`${where}: wishlist book has no title`);
+  return { title, authors: listField(frontmatter, "authors", where), status: "wishlist" };
+}
+
+// The `author` list of the book note a Currently Reading title links to. Only
+// the note's basename is used, so a link cannot reach outside resources/reading.
+function bookNoteAuthors(resources, target) {
+  if (!target) return [];
+  const name = `${target.split("/").at(-1)}.md`;
+  const path = join(resources, "reading", name);
+  if (!existsSync(path)) return [];
+  const frontmatter = frontmatterOf(readFileSync(path, "utf8"));
+  const where = `reading/${name}`;
+  if (!frontmatter || scalar(field(frontmatter, "type", where)) !== "book-note") return [];
+  return listField(frontmatter, "author", where);
+}
+
+// Lowercase words of any script, accents and punctuation removed.
+const nameKey = (text) => String(text).normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase()
+  .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+// Public values that would carry private note text: a vault link, URL, or path,
+// or the full name of a person with a note in the vault who is not credited as
+// an author. Credited means an entire author value, or one author in a list
+// joined by commas, "and", or "&"; a name inside other words (a "recommended by"
+// aside) is not a credit. Reports locations, never the text.
+function privateTextIssues(taste, daybookDir) {
+  const personDir = join(daybookDir, "person");
+  if (!existsSync(personDir)) {
+    return [`${personDir} is missing, so names from the vault's private notes cannot be checked`];
+  }
+  const credited = new Set();
+  const credit = (value) => {
+    credited.add(nameKey(value));
+    for (const one of value.split(/\s*(?:,|&|\band\b)\s*/)) credited.add(nameKey(one));
+  };
+  for (const book of [...taste.books, ...taste.currentlyReading]) credit(book.author);
+  for (const book of taste.wishlist) book.authors.forEach(credit);
+  const people = [...new Set(readdirSync(personDir).filter((file) => file.endsWith(".md"))
+    .map((file) => nameKey(file.slice(0, -3).replace(/\([^)]*\)/g, " "))))]
+    .filter((name) => name.split(" ").length > 1 && !credited.has(name));
+  const folders = readdirSync(daybookDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => new RegExp(`(^|[^\\p{L}\\p{N}])${entry.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/`, "iu"));
+  const issues = [];
+  const inspect = (where, value) => {
+    if (typeof value !== "string" || !value) return;
+    if (/\[\[|\]\]|\]\(|:\/\//.test(value) || folders.some((folder) => folder.test(value))) {
+      issues.push(`${where} carries a vault link or path`);
+    } else if (people.some((name) => ` ${nameKey(value)} `.includes(` ${name} `))) {
+      issues.push(`${where} names a person from the vault's private notes`);
+    }
+  };
+  for (const [catalog, rows] of Object.entries(taste)) {
+    if (!Array.isArray(rows)) continue;
+    rows.forEach((row, i) => {
+      for (const [key, value] of Object.entries(row)) {
+        if (Array.isArray(value)) value.forEach((item, j) => inspect(`${catalog}[${i}].${key}[${j}]`, item));
+        else inspect(`${catalog}[${i}].${key}`, value);
+      }
+    });
+  }
+  return issues;
 }
 
 export function generateTaste(daybookDir) {
   const resources = join(daybookDir, "resources");
   const load = (...parts) => readFileSync(join(resources, ...parts), "utf8");
-  const taste = { generated: new Date().toISOString(), ...parseReadingLog(load("reading-log.md")) };
+  const log = parseReadingLog(load("reading-log.md"));
+  const taste = { generated: new Date().toISOString(), currentlyReading: [], books: log.books };
   for (const [name, fields] of Object.entries(catalogs)) taste[name] = parseCatalog(load("taste", `${name}.md`), fields);
   taste.wishlist = readdirSync(join(resources, "wishlist")).filter((file) => file.endsWith(".md")).sort()
-    .map((file) => parseWishlist(load("wishlist", file))).filter(Boolean)
+    .map((file) => parseWishlist(load("wishlist", file), file)).filter(Boolean)
     .sort((a, b) => a.title.localeCompare(b.title));
+  // An author for a book being read comes from a designated field: its book
+  // note, else a finished row or a wishlist entry with the same title.
+  const key = (title) => title.toLowerCase().replace(/\s+/g, " ").trim();
+  const tableAuthors = new Map();
+  for (const book of taste.books) if (book.author && !tableAuthors.has(key(book.title))) tableAuthors.set(key(book.title), book.author);
+  const wishAuthors = new Map();
+  for (const book of taste.wishlist) if (book.authors.length && !wishAuthors.has(key(book.title))) wishAuthors.set(key(book.title), book.authors.join(", "));
+  taste.currentlyReading = log.currentlyReading.map(({ title, note }) => ({
+    title,
+    author: bookNoteAuthors(resources, note).join(", ") || tableAuthors.get(key(title)) || wishAuthors.get(key(title)) || "",
+  }));
+  const issues = privateTextIssues(taste, daybookDir);
+  if (issues.length) {
+    throw new Error(`Refusing to generate taste.js: ${issues.length} public value(s) would carry private note text.\n  ${issues.join("\n  ")}`);
+  }
   return taste;
 }
 
@@ -149,4 +310,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   writeFileSync(join(here, "..", "taste.js"),
     `/* Generated by scripts/generate-taste.mjs. Only approved public catalog fields. */\nwindow.TASTE = ${JSON.stringify(taste, null, 2)};\n`);
   console.log(Object.entries(taste).filter(([, value]) => Array.isArray(value)).map(([key, value]) => `${key}: ${value.length}`).join("\n"));
+  const unnamed = taste.currentlyReading.filter((book) => !book.author).length;
+  if (unnamed) console.log(`currentlyReading without an author field: ${unnamed} (a book note's author fills it)`);
 }
