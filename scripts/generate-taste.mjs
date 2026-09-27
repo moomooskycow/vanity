@@ -73,17 +73,19 @@ function headerColumns(cells) {
   return { width: cells.length, book: index.get("book"), author: index.get("author"), finished: index.get("finished"), fav: index.get("fav") };
 }
 
-// The bold title of a Currently Reading line: a wikilink's alias, else its name.
+// A book cell or bold title: its display title, and the note it links to (the
+// book's identity in the log; never published).
 function titleSlot(slot) {
   const link = slot.match(/\[\[([^\]]+)\]\]/);
-  if (!link) return displayText(slot.replace(/[★⭐]/g, "").replace(/\(reread\)/g, ""));
+  if (!link) return { title: displayText(slot.replace(/[★⭐]/g, "").replace(/\(reread\)/g, "")), note: "" };
   const [target, alias] = link[1].replace(/\\\|/g, "|").split("|");
-  return (alias ?? target.split("/").at(-1)).trim();
+  return { title: (alias ?? target.split("/").at(-1)).trim(), note: target.split("/").at(-1).trim().toLowerCase() };
 }
 
 function parseReadingLog(text) {
   const currentlyReading = [];
   const books = [];
+  const notes = [];
   let section = null;
   let year = null;
   let columns = null;
@@ -115,9 +117,10 @@ function parseReadingLog(text) {
       if (finished && !DATE.test(finished)) throw new Error(`reading-log ${year}: a Finished cell is not a date (M/D/YYYY)`);
       books.push({ title: displayText(cell("book")), author: displayText(cell("author")), finished,
         favorite: /[★⭐]/.test(cell("fav")), year });
+      notes.push(titleSlot(cell("book")).note);
     }
   }
-  return { currentlyReading, books };
+  return { currentlyReading, books, notes };
 }
 
 function parseCatalog(text, fields) {
@@ -283,17 +286,21 @@ export function generateTaste(daybookDir) {
   taste.wishlist = readdirSync(join(resources, "wishlist")).filter((file) => file.endsWith(".md")).sort()
     .map((file) => parseWishlist(load("wishlist", file), file)).filter(Boolean)
     .sort((a, b) => a.title.localeCompare(b.title));
-  // A book being read takes its author from a finished row or a wishlist entry
-  // with the same title; otherwise the author stays empty.
+  // A book being read takes its author from a finished row that links the same
+  // note, else from finished rows and wishlist entries with the same title when
+  // they all agree on one author. Otherwise the author stays empty rather than
+  // guessed: two different books can share a title.
   const key = (title) => title.toLowerCase().replace(/\s+/g, " ").trim();
-  const tableAuthors = new Map();
-  for (const book of taste.books) if (book.author && !tableAuthors.has(key(book.title))) tableAuthors.set(key(book.title), book.author);
-  const wishAuthors = new Map();
-  for (const book of taste.wishlist) if (book.authors.length && !wishAuthors.has(key(book.title))) wishAuthors.set(key(book.title), book.authors.join(", "));
-  taste.currentlyReading = log.currentlyReading.map((title) => ({
-    title,
-    author: tableAuthors.get(key(title)) || wishAuthors.get(key(title)) || "",
-  }));
+  const byNote = new Map();
+  taste.books.forEach((book, i) => { if (log.notes[i] && book.author) byNote.set(log.notes[i], book.author); });
+  const byTitle = new Map();
+  const remember = (title, author) => { if (author) (byTitle.get(key(title)) ?? byTitle.set(key(title), new Set()).get(key(title))).add(author); };
+  for (const book of taste.books) remember(book.title, book.author);
+  for (const book of taste.wishlist) remember(book.title, book.authors.join(", "));
+  taste.currentlyReading = log.currentlyReading.map(({ title, note }) => {
+    const authors = byTitle.get(key(title));
+    return { title, author: (note && byNote.get(note)) || (authors?.size === 1 ? [...authors][0] : "") };
+  });
   const issues = privateTextIssues(taste, daybookDir);
   if (issues.length) {
     throw new Error(`Refusing to generate taste.js: ${issues.length} public value(s) would carry private note text.\n  ${issues.join("\n  ")}`);

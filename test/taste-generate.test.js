@@ -121,6 +121,20 @@ Last verified today. Live:
     { title: "Plain title", author: "Table Author" },
   ]);
   assert.doesNotMatch(JSON.stringify(taste), /lent by|return by|Example Friend|person\/|few pages|Signed Copy|slowly|Last verified|Note Author/);
+
+  // Two different books can share a title: a linked note decides, and a title alone
+  // names an author only when every source agrees.
+  const shared = await generate(vault(t, `# Reading Log
+## Currently Reading
+- **[[home-a|Home]]**
+- **[[home-c|Home]]**
+## 2025 (2 books)
+| Book | Author | Finished | Fav |
+| --- | --- | --- | --- |
+| [[home-a\\|Home]] | First Author | 1/1/2025 | |
+| [[home-b\\|Home]] | Second Author | 2/2/2025 | |
+`));
+  assert.deepEqual(shared.currentlyReading, [{ title: "Home", author: "First Author" }, { title: "Home", author: "" }]);
 });
 
 test("reading-log tables are read by header, so a notes column cannot shift into a public field", async (t) => {
