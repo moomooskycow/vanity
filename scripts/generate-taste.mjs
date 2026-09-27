@@ -7,8 +7,8 @@
 // a wishlist book's `title` and `authors`. Prose around those slots, including
 // everything after the dash on a Currently Reading line, is never published.
 // Generation fails, and writes nothing, if a public value would still carry a
-// vault link or path, or the name of a person who has a note in the vault but
-// is not an author of anything published.
+// link, vault path, URI, or email address, or the name of a person who has a
+// note in the vault but is not credited as an author.
 //
 // Usage: node scripts/generate-taste.mjs [daybook-dir]
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -69,7 +69,7 @@ function splitRow(row) {
 function headerColumns(cells) {
   const index = new Map(cells.map((cell, i) => [cell.trim().toLowerCase(), i]));
   if (!index.has("book") || !index.has("author")) return null;
-  return { book: index.get("book"), author: index.get("author"), finished: index.get("finished"), fav: index.get("fav") };
+  return { width: cells.length, book: index.get("book"), author: index.get("author"), finished: index.get("finished"), fav: index.get("fav") };
 }
 
 // The bold title of a Currently Reading line. When it is a wikilink, its target
@@ -109,7 +109,7 @@ function parseReadingLog(text) {
         continue;
       }
       if (!columns) throw new Error(`reading-log ${year}: a table row comes before a Book and Author header`);
-      if (cells.length < 4) continue;
+      if (cells.length < columns.width) throw new Error(`reading-log ${year}: a table row has fewer cells than its header`);
       const cell = (name) => (columns[name] === undefined ? "" : cells[columns[name]] ?? "");
       const finished = cell("finished").trim();
       if (finished && !DATE.test(finished)) throw new Error(`reading-log ${year}: a Finished cell is not a date (M/D/YYYY)`);
@@ -158,8 +158,9 @@ function frontmatterOf(text) {
 
 // YAML: a quote opens a quoted scalar only at the start of the value, or of an
 // item in a flow list; inside single quotes '' is an apostrophe. Outside quotes,
-// " #" starts a comment, which is never published.
-function stripComment(raw) {
+// " #" starts a comment, which is never published. A quote left open stops
+// generation, since everything after it would otherwise be published.
+function stripComment(raw, where) {
   const text = raw.trim();
   const flow = text.startsWith("[") && !text.startsWith("[[");
   let quote = null;
@@ -177,6 +178,7 @@ function stripComment(raw) {
     if (itemStart && (char === '"' || char === "'")) quote = char;
     itemStart = flow && (char === "[" || char === ",");
   }
+  if (quote) throw new Error(`${where} has a quote that is never closed`);
   return text;
 }
 
@@ -184,7 +186,7 @@ function stripComment(raw) {
 // (a block scalar, tag, anchor, alias, or a flow list split across lines) stops
 // generation rather than guessing what the value is.
 function field(frontmatter, key, where) {
-  const value = stripComment(frontmatter.match(new RegExp(`^${key}:[ \\t]*(.*)$`, "m"))?.[1] ?? "");
+  const value = stripComment(frontmatter.match(new RegExp(`^${key}:[ \\t]*(.*)$`, "m"))?.[1] ?? "", `${where}: \`${key}\``);
   if (/^[|>!&*]/.test(value) || (value.startsWith("[") && !value.startsWith("[[") && !value.endsWith("]"))) {
     throw new Error(`${where}: \`${key}\` uses YAML syntax the generator does not read`);
   }
@@ -202,7 +204,7 @@ function listField(frontmatter, key, where) {
     items = [raw];
   } else {
     const block = frontmatter.match(new RegExp(`^${key}:[ \\t]*\\r?\\n((?:[ \\t]+- [^\\n]*(?:\\n|$))*)`, "m"))?.[1] ?? "";
-    items = block.split(/\r?\n/).filter((line) => line.trim()).map((line) => stripComment(line.replace(/^\s*-\s*/, "")));
+    items = block.split(/\r?\n/).filter((line) => line.trim()).map((line) => stripComment(line.replace(/^\s*-\s*/, ""), `${where}: \`${key}\``));
   }
   return items.map((item) => displayText(scalar(item))).filter(Boolean);
 }
@@ -234,8 +236,15 @@ function bookNoteAuthors(resources, target) {
 const nameKey = (text) => String(text).normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase()
   .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
-// Public values that would carry private note text: a vault link, URL, or path,
-// or the full name of a person with a note in the vault who is not credited as
+// Wikilink and Markdown link syntax, anything with ://, and email addresses.
+const LINK = /\[\[|\]\]|\]\(|:\/\/|[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/i;
+// A URI scheme without slashes: a lowercase scheme touching its first character
+// (mailto:, data:, tel:+1...), or a well-known one in any case. A title such as
+// "Javascript: The Good Parts" has a space after the colon and passes.
+const URI = [/(^|[^\p{L}\p{N}])[a-z][a-z0-9+.-]*:(?=[^\s\d])/u, /(^|[^\p{L}\p{N}])(?:mailto|data|tel|sms|file|javascript|obsidian):(?=\S)/iu];
+
+// Public values that would carry private note text: a link, vault path, URI, or
+// email address, or the full name of a person with a note in the vault who is not credited as
 // an author. Credited means an entire author value, or one author in a list
 // joined by commas, "and", or "&"; a name inside other words (a "recommended by"
 // aside) is not a credit. Reports locations, never the text.
@@ -260,8 +269,8 @@ function privateTextIssues(taste, daybookDir) {
   const issues = [];
   const inspect = (where, value) => {
     if (typeof value !== "string" || !value) return;
-    if (/\[\[|\]\]|\]\(|:\/\//.test(value) || folders.some((folder) => folder.test(value))) {
-      issues.push(`${where} carries a vault link or path`);
+    if (LINK.test(value) || URI.some((scheme) => scheme.test(value)) || folders.some((folder) => folder.test(value))) {
+      issues.push(`${where} carries a link, path, URI, or email address`);
     } else if (people.some((name) => ` ${nameKey(value)} `.includes(` ${name} `))) {
       issues.push(`${where} names a person from the vault's private notes`);
     }

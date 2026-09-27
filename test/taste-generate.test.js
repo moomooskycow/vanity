@@ -131,6 +131,15 @@ test("reading-log tables are read by header, so a notes column cannot shift into
   assert.deepEqual(taste.books, [{ title: "Moved columns", author: "Real Author", finished: "3/4/2024", favorite: true, year: 2024 }]);
   assert.doesNotMatch(JSON.stringify(taste), /private note|lent/);
   await assert.rejects(generate(vault(t, log("when I finish"))), /2024.*Finished/);
+  const twoColumns = `# Reading Log
+## 2024 (2 books)
+| Book | Author |
+| --- | --- |
+| Two columns | Its Author |
+`;
+  const read = await generate(vault(t, twoColumns));
+  assert.deepEqual(read.books, [{ title: "Two columns", author: "Its Author", finished: "", favorite: false, year: 2024 }]);
+  await assert.rejects(generate(vault(t, `${twoColumns}| Missing author |\n`)), /2024: a table row has fewer cells than its header/);
 });
 
 test("generation fails closed when a public field would carry private note text", async (t) => {
@@ -160,6 +169,9 @@ ${current}
   await refuses(vault(t, log("Example Author"), { ...people, ...film("watched with [[person/Example Friend|Example Friend]]") }), /films\[0\]\.qualifier/);
   await refuses(vault(t, log("Example Author"), { ...people, ...film("watched with Пример Друг") }), /films\[0\]\.qualifier/);
   await refuses(vault(t, log("[[person/Example Friend]]"), people), /books\[0\]\.author/);
+  for (const uri of ["mailto:friend@example.org", "data:text/plain,a private note", "call tel:+15550100"]) {
+    await refuses(vault(t, log("Example Author"), { ...people, ...film(uri) }), /films\[0\]\.qualifier/);
+  }
   // Being named inside an author value does not make a friend an author.
   const note = { "resources/reading/lent.md": "---\ntype: book-note\nauthor: Public Writer (recommended by Example Friend)\n---\n" };
   await refuses(vault(t, log("Example Author", "- **[[lent|Lent book]]**"), { ...people, ...note }), /currentlyReading\[0\]\.author/);
@@ -192,4 +204,6 @@ test("frontmatter comments never reach a public field, and unreadable YAML stops
   assert.doesNotMatch(JSON.stringify(taste), /medical|gift idea|lent by/);
   await assert.rejects(generate(vault(t, log, { "resources/wishlist/wish.md": wish(">\n  A folded private note") })),
     /wishlist\/wish\.md: `title` uses YAML syntax/);
+  await assert.rejects(generate(vault(t, log, { "resources/wishlist/wish.md": wish("'Wanted book # a private note") })),
+    /wishlist\/wish\.md: `title` has a quote that is never closed/);
 });
