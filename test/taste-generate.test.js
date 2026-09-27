@@ -62,10 +62,11 @@ Private journal body and family details
 | Book | Author | Finished | Fav |
 | --- | --- | --- | --- |
 | Plain title | Author | 1/1/2025 | |
+| Current book | Reader | 2/2/2025 | |
 ## Abandoned
 | Private title | Private author | 2020 | 2021 | Private reason |
 `, {
-    "resources/reading/current.md": "---\ntype: book-note\nauthor: [\"Reader\"]\nrating: 5\n---\nPrivate reading notes\n",
+    "resources/reading/current.md": "---\ntype: book-note\nauthor: [\"Private Note Author\"]\nrating: 5\n---\nPrivate reading notes\n",
     "resources/wishlist/wanted.md": wish(),
     "resources/wishlist/bought.md": wish("", "purchased"),
     "resources/wishlist/nonbook.md": wish("", "wishlist", "purchase-wish"),
@@ -83,6 +84,7 @@ authors: ["[[One|One, Jr.]]", '[[Two]]']
     { title: "A title — with a dash", author: "Writer", finished: "7/7/2026", favorite: true, year: 2026 },
     { title: "Another title", author: "Other writer", finished: "6/1/2026", favorite: false, year: 2026 },
     { title: "Plain title", author: "Author", finished: "1/1/2025", favorite: false, year: 2025 },
+    { title: "Current book", author: "Reader", finished: "2/2/2025", favorite: false, year: 2025 },
   ]);
   assert.deepEqual(taste.films, [{ title: "Seen film", qualifier: "especially frightening, special place" }]);
   assert.deepEqual(taste.watchlist, [{ title: "Unseen film" }]);
@@ -94,7 +96,7 @@ authors: ["[[One|One, Jr.]]", '[[Two]]']
   assert.doesNotMatch(JSON.stringify(taste), /private|https?:|"(?:price|source|url|cover|notes|rating)"/i);
 });
 
-test("words after the dash in Currently Reading never become an author; authors come from a designated field", async (t) => {
+test("words after the dash in Currently Reading never become an author; authors come from a finished row or the wishlist", async (t) => {
   const dir = vault(t, `# Reading Log
 ## Currently Reading
 Last verified today. Live:
@@ -107,7 +109,8 @@ Last verified today. Live:
 | --- | --- | --- | --- |
 | Plain title | Table Author | 1/1/2025 | |
 `, {
-    "resources/reading/paced.md": "---\ntype: book-note\nauthor: Paced Author\n---\na few pages at a time\n",
+    "resources/reading/lent.md": "---\ntype: book-note\nauthor: Note Author\n---\n",
+    "resources/wishlist/paced.md": "---\ntype: book-wish\nstatus: wishlist\ntitle: Paced book\nauthors: [Paced Author]\n---\n",
     "person/Example Friend.md": "---\ntype: person\n---\n",
   });
   const taste = await generate(dir);
@@ -117,7 +120,7 @@ Last verified today. Live:
     { title: "Signed book", author: "" },
     { title: "Plain title", author: "Table Author" },
   ]);
-  assert.doesNotMatch(JSON.stringify(taste), /lent by|return by|Example Friend|person\/|few pages|Signed Copy|slowly|Last verified/);
+  assert.doesNotMatch(JSON.stringify(taste), /lent by|return by|Example Friend|person\/|few pages|Signed Copy|slowly|Last verified|Note Author/);
 });
 
 test("reading-log tables are read by header, so a notes column cannot shift into a public field", async (t) => {
@@ -174,8 +177,8 @@ ${current}
     await refuses(vault(t, log("Example Author"), { ...people, ...film(uri) }), /films\[0\]\.qualifier/);
   }
   // Being named inside an author value does not make a friend an author.
-  const note = { "resources/reading/lent.md": "---\ntype: book-note\nauthor: Public Writer (recommended by Example Friend)\n---\n" };
-  await refuses(vault(t, log("Example Author", "- **[[lent|Lent book]]**"), { ...people, ...note }), /currentlyReading\[0\]\.author/);
+  const lent = { "resources/wishlist/lent.md": "---\ntype: book-wish\nstatus: wishlist\ntitle: Lent book\nauthors: [Public Writer (recommended by Example Friend)]\n---\n" };
+  await refuses(vault(t, log("Example Author"), { ...people, ...lent }), /wishlist\[0\]\.authors\[0\]/);
   // Without the vault's person notes there is nothing to check names against.
   const dir = vault(t, log("Example Author"), film("watched with Example Friend"));
   rmSync(join(dir, "person"), { recursive: true });
@@ -183,25 +186,21 @@ ${current}
 });
 
 test("frontmatter comments never reach a public field, and unreadable YAML stops generation", async (t) => {
-  const log = `# Reading Log
-## Currently Reading
-- **[[commented|Commented book]]** — a note
-- **[[nicknamed|Nicknamed book]]**
-- **[[quoted|Quoted book]]**
-`;
-  const wish = (title) => `---\ntype: book-wish\nstatus: wishlist\ntitle: ${title}\nauthors:\n  - "Wish Author" # lent by a friend\n---\n`;
+  const log = "# Reading Log\n";
+  const wish = (title, authors = `\n  - "Wish Author" # lent by a friend`) =>
+    `---\ntype: book-wish\nstatus: wishlist\ntitle: ${title}\nauthors:${authors}\n---\n`;
   const taste = await generate(vault(t, log, {
-    "resources/reading/commented.md": "---\ntype: book-note\nauthor: Public O'Writer # private medical appointment\n---\n",
-    "resources/reading/nicknamed.md": "---\ntype: book-note\nauthor: Public Writer, 'nickname # private medical appointment\n---\n",
-    "resources/reading/quoted.md": "---\ntype: book-note\nauthor: 'Public O''Writer #1' # private medical appointment\n---\n",
-    "resources/wishlist/wish.md": wish(`"Wanted book" # gift idea`),
+    "resources/wishlist/a.md": wish(`"Wanted book" # gift idea`),
+    "resources/wishlist/b.md": wish("Commented book", " Public O'Writer # private medical appointment"),
+    "resources/wishlist/c.md": wish("Nicknamed book", " Public Writer, 'nickname # private medical appointment"),
+    "resources/wishlist/d.md": wish("Quoted book", " 'Public O''Writer #1' # private medical appointment"),
   }));
-  assert.deepEqual(taste.currentlyReading, [
-    { title: "Commented book", author: "Public O'Writer" },
-    { title: "Nicknamed book", author: "Public Writer, 'nickname" },
-    { title: "Quoted book", author: "Public O'Writer #1" },
+  assert.deepEqual(taste.wishlist, [
+    { title: "Commented book", authors: ["Public O'Writer"], status: "wishlist" },
+    { title: "Nicknamed book", authors: ["Public Writer, 'nickname"], status: "wishlist" },
+    { title: "Quoted book", authors: ["Public O'Writer #1"], status: "wishlist" },
+    { title: "Wanted book", authors: ["Wish Author"], status: "wishlist" },
   ]);
-  assert.deepEqual(taste.wishlist, [{ title: "Wanted book", authors: ["Wish Author"], status: "wishlist" }]);
   assert.doesNotMatch(JSON.stringify(taste), /medical|gift idea|lent by/);
   await assert.rejects(generate(vault(t, log, { "resources/wishlist/wish.md": wish(">\n  A folded private note") })),
     /wishlist\/wish\.md: `title` uses YAML syntax/);
