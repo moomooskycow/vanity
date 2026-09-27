@@ -3,9 +3,10 @@
 //
 // A value reaches taste.js only from a designated slot: a reading-log table cell
 // under Book, Author, Finished, or Fav; the bold title of a Currently Reading
-// line; a taste-table cell under an approved header; a book note's `author`; or
-// a wishlist book's `title` and `authors`. Prose around those slots, including
-// everything after the dash on a Currently Reading line, is never published.
+// line; a taste-table cell under an approved header; or a wishlist book's
+// `title` and `authors`. Nothing else in the vault is read. Prose around those
+// slots, including everything after the dash on a Currently Reading line, is
+// never published.
 // Generation fails, and writes nothing, if a public value would still carry a
 // link, vault path, URI, or email address, or the name of a person who has a
 // note in the vault but is not credited as an author.
@@ -72,18 +73,19 @@ function headerColumns(cells) {
   return { width: cells.length, book: index.get("book"), author: index.get("author"), finished: index.get("finished"), fav: index.get("fav") };
 }
 
-// The bold title of a Currently Reading line. When it is a wikilink, its target
-// names the book's note, which is where the author comes from.
+// A book cell or bold title: its display title, and the note it links to (the
+// book's identity in the log; never published).
 function titleSlot(slot) {
   const link = slot.match(/\[\[([^\]]+)\]\]/);
-  if (!link) return { title: displayText(slot.replace(/[★⭐]/g, "").replace(/\(reread\)/g, "")), note: null };
+  if (!link) return { title: displayText(slot.replace(/[★⭐]/g, "").replace(/\(reread\)/g, "")), note: "" };
   const [target, alias] = link[1].replace(/\\\|/g, "|").split("|");
-  return { title: (alias ?? target.split("/").at(-1)).trim(), note: target.trim() };
+  return { title: (alias ?? target.split("/").at(-1)).trim(), note: target.split("/").at(-1).trim().toLowerCase() };
 }
 
 function parseReadingLog(text) {
   const currentlyReading = [];
   const books = [];
+  const notes = [];
   let section = null;
   let year = null;
   let columns = null;
@@ -115,9 +117,10 @@ function parseReadingLog(text) {
       if (finished && !DATE.test(finished)) throw new Error(`reading-log ${year}: a Finished cell is not a date (M/D/YYYY)`);
       books.push({ title: displayText(cell("book")), author: displayText(cell("author")), finished,
         favorite: /[★⭐]/.test(cell("fav")), year });
+      notes.push(titleSlot(cell("book")).note);
     }
   }
-  return { currentlyReading, books };
+  return { currentlyReading, books, notes };
 }
 
 function parseCatalog(text, fields) {
@@ -219,19 +222,6 @@ function parseWishlist(text, file) {
   return { title, authors: listField(frontmatter, "authors", where), status: "wishlist" };
 }
 
-// The `author` list of the book note a Currently Reading title links to. Only
-// the note's basename is used, so a link cannot reach outside resources/reading.
-function bookNoteAuthors(resources, target) {
-  if (!target) return [];
-  const name = `${target.split("/").at(-1)}.md`;
-  const path = join(resources, "reading", name);
-  if (!existsSync(path)) return [];
-  const frontmatter = frontmatterOf(readFileSync(path, "utf8"));
-  const where = `reading/${name}`;
-  if (!frontmatter || scalar(field(frontmatter, "type", where)) !== "book-note") return [];
-  return listField(frontmatter, "author", where);
-}
-
 // Lowercase words of any script, accents and punctuation removed.
 const nameKey = (text) => String(text).normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase()
   .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -296,17 +286,21 @@ export function generateTaste(daybookDir) {
   taste.wishlist = readdirSync(join(resources, "wishlist")).filter((file) => file.endsWith(".md")).sort()
     .map((file) => parseWishlist(load("wishlist", file), file)).filter(Boolean)
     .sort((a, b) => a.title.localeCompare(b.title));
-  // An author for a book being read comes from a designated field: its book
-  // note, else a finished row or a wishlist entry with the same title.
+  // A book being read takes its author from a finished row that links the same
+  // note, else from finished rows and wishlist entries with the same title when
+  // they all agree on one author. Otherwise the author stays empty rather than
+  // guessed: two different books can share a title.
   const key = (title) => title.toLowerCase().replace(/\s+/g, " ").trim();
-  const tableAuthors = new Map();
-  for (const book of taste.books) if (book.author && !tableAuthors.has(key(book.title))) tableAuthors.set(key(book.title), book.author);
-  const wishAuthors = new Map();
-  for (const book of taste.wishlist) if (book.authors.length && !wishAuthors.has(key(book.title))) wishAuthors.set(key(book.title), book.authors.join(", "));
-  taste.currentlyReading = log.currentlyReading.map(({ title, note }) => ({
-    title,
-    author: bookNoteAuthors(resources, note).join(", ") || tableAuthors.get(key(title)) || wishAuthors.get(key(title)) || "",
-  }));
+  const byNote = new Map();
+  taste.books.forEach((book, i) => { if (log.notes[i] && book.author) byNote.set(log.notes[i], book.author); });
+  const byTitle = new Map();
+  const remember = (title, author) => { if (author) (byTitle.get(key(title)) ?? byTitle.set(key(title), new Set()).get(key(title))).add(author); };
+  for (const book of taste.books) remember(book.title, book.author);
+  for (const book of taste.wishlist) remember(book.title, book.authors.join(", "));
+  taste.currentlyReading = log.currentlyReading.map(({ title, note }) => {
+    const authors = byTitle.get(key(title));
+    return { title, author: (note && byNote.get(note)) || (authors?.size === 1 ? [...authors][0] : "") };
+  });
   const issues = privateTextIssues(taste, daybookDir);
   if (issues.length) {
     throw new Error(`Refusing to generate taste.js: ${issues.length} public value(s) would carry private note text.\n  ${issues.join("\n  ")}`);
@@ -320,5 +314,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     `/* Generated by scripts/generate-taste.mjs. Only approved public catalog fields. */\nwindow.TASTE = ${JSON.stringify(taste, null, 2)};\n`);
   console.log(Object.entries(taste).filter(([, value]) => Array.isArray(value)).map(([key, value]) => `${key}: ${value.length}`).join("\n"));
   const unnamed = taste.currentlyReading.filter((book) => !book.author).length;
-  if (unnamed) console.log(`currentlyReading without an author field: ${unnamed} (a book note's author fills it)`);
+  if (unnamed) console.log(`currentlyReading without an author: ${unnamed} (no finished row or wishlist entry names one)`);
 }
