@@ -27,4 +27,6 @@ inputs, and must not be reused as policy for private repositories.
 
 `README.md` owns preview, check, and deployment procedures. Use HTTP for
 delivery QA when root-relative assets or API routes matter; `file://` is only
-a layout preview. Publishing requires an operator-authorized task.
+a layout preview. Reviewed merges to `master` publish automatically through CI,
+followed by both-domain smoke checks and an agent-only failure alert. This does
+not authorize promoting drafts or widening the Daybook public-data projection.
