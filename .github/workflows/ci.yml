@@ -4,6 +4,15 @@ on:
   pull_request:
   push:
     branches: [master]
+  workflow_dispatch:
+    inputs:
+      alert_probe:
+        description: Fail safely to exercise the agent alert route without deploying
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -20,3 +29,46 @@ jobs:
           node-version: "22"
       - name: Run repo-owned gate
         run: ./scripts/check.sh
+
+  deploy:
+    name: production deploy and smoke
+    needs: check
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Controlled alert probe
+        if: inputs.alert_probe
+        run: |
+          echo "::error::Controlled vanity deployment failure; production is unchanged."
+          exit 1
+      - name: Publish merged source and smoke both domains
+        if: ${{ !inputs.alert_probe }}
+        env:
+          DIGITALOCEAN_API_TOKEN: ${{ secrets.DIGITALOCEAN_API_TOKEN }}
+        run: node scripts/deploy.mjs
+
+  alert:
+    name: alert agent on production failure
+    needs: [check, deploy]
+    if: >-
+      always() && github.ref == 'refs/heads/master' &&
+      (needs.check.result == 'failure' || needs.deploy.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Send failure to the existing Vanity Sentry agent intake
+        env:
+          SENTRY_DSN: https://dd3f79d117806f5bbd934413add4ae9d@o4510313803677696.ingest.us.sentry.io/4510314423386112
+          CHECK_RESULT: ${{ needs.check.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          ALERT_PROBE: ${{ inputs.alert_probe && 'yes' || 'no' }}
+        run: node scripts/alert-deploy.mjs

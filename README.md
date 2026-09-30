@@ -43,12 +43,40 @@ python3 -m http.server 4173        # or: open index.html
 
 ## Deploy
 
-Publication requires an operator-authorized task. The current DigitalOcean
-App Platform target serves tracked static files from `master`; it uses a manual
-Git-source deployment rather than a connected deploy-on-push integration.
-Estate owns the provider binding and credentials. Verify the active source
-revision and both public domains after a deployment; retain the prior deployment
-for rollback.
+Reviewed merges to `master` publish automatically after the repo-owned gate.
+The CI `production deploy and smoke` job redeploys the existing DigitalOcean
+App Platform Git-source target, verifies its active source revision, and checks
+the exact committed homepage, scripts, portrait, and social-card bytes on both
+`https://phaedrus.io` and `https://www.phaedrus.io`. A failed gate, deployment, or
+smoke emits a narrow error to the existing `misty-step/vanity` Sentry project,
+whose enabled issue-stream workflows notify only `kaylee-alert-intake`.
+The Actions run retains the deployment ID, prior deployment ID, and smoke hashes.
+
+There is no separate routine publication approval. Normal review and green CI,
+the approved generated public-data projection, and deliberate promotion of
+private/local drafts remain boundaries. Deployment never opens Daybook or
+regenerates catalogs; local uncommitted files are not published.
+
+Estate owns the existing provider placement. The deployment job uses the
+repository secret `DIGITALOCEAN_API_TOKEN`; `.env.pass` references its existing
+pass credential for authorized local operations. The Sentry DSN is a public
+ingest key, not a bearer credential. Verify the deployment run after merge:
+
+```bash
+gh run list --workflow ci.yml --branch master
+GITHUB_SHA=<merged-sha> node scripts/deploy.mjs --smoke-only
+```
+
+Use `gh workflow run ci.yml --ref master -f alert_probe=true` for a safe deliberate
+failure drill. It skips publication, fails the deployment job, and sends an
+agent-only error tagged `alert_route_probe=yes`; production stays unchanged.
+Confirm the error reaches Sentry and the Kaylee intake, not merely that sending
+returned success.
+
+The deployment summary retains the prior deployment for rollback. For recovery,
+use the existing App Platform rollback API/CLI to restore that known-good
+deployment, then run the smoke command with its source revision. Keep
+`skip_pin=true` so a recovery does not disable future merged-source deployments.
 
 The portable handlers in `api/` can also be served by `service/server.js`.
 The static preview does not emulate those routes, and the observer must tolerate
