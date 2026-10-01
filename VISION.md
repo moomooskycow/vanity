@@ -26,8 +26,8 @@ Natural scrolling is preferable to shrinking or clipping the content.
   `quote-chyron.js` owns quote interaction and autoplay. `quotes.js` is
   generated from the Daybook quote pool; regenerating it does not authorize
   reading or publishing unrelated private Daybook material.
-- `canary-observer.js` and `api/` provide lightweight telemetry and must never
-  make the static page fragile.
+- The static page has no browser-error transport; production delivery errors use
+  the existing narrow agent-only alert path without changing the page.
 - Reserve enough quote space, including verse and attribution, to avoid layout
   shift. Quotes cycle on a reading interval while the page is visible. Instant
   replacement is not a typewriter or scrolling marquee; hidden tabs pause and

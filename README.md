@@ -34,7 +34,8 @@ python3 -m http.server 4173        # or: open index.html
   429 existing entries, including verse and attribution, at 320px and wider.
   After changing the generated pool, measure rendered height with loaded fonts;
   character count alone does not prove that the reserve fits.
-- `canary-observer.js` and `api/` provide lightweight browser-error telemetry.
+- The page does not send browser-error telemetry. Production gate/deploy errors
+  retain the existing narrow Sentry path described below.
 - Keep the surface to the portrait, approved personal line, three exits, and
   quotations. Allow natural vertical scrolling; avoid horizontal overflow.
 - To upgrade the design system, bump the pinned tag in the jsdelivr
@@ -63,6 +64,12 @@ mutation. Uncommitted files are not archived, and private generators never run.
 Unsupported, stray, combined, or repeated CLI arguments fail before any provider
 authentication or mutation. Production runs the same preflight before using
 its credential. This does not claim provider-side build or delivery proof.
+
+The artifact smoke covers five public files per domain (ten production byte
+checks). The retired Canary observer, configuration/health handlers, standalone
+telemetry service, and their environment consumption have been removed. There
+are no browser config requests or ingest credentials. Historical secret inventory
+and archived Allie evidence are not active configuration and are left untouched.
 
 DigitalOcean has no inert deployment POST. Token permissions, the private live app
 spec/Git-source configuration, current-master ownership, provider-side build,
@@ -96,10 +103,6 @@ The deployment summary retains the prior deployment for rollback. For recovery,
 use the existing App Platform rollback API/CLI to restore that known-good
 deployment, then run the smoke command with its source revision. Keep
 `skip_pin=true` so a recovery does not disable future merged-source deployments.
-
-The portable handlers in `api/` can also be served by `service/server.js`.
-The static preview does not emulate those routes, and the observer must tolerate
-an unavailable configuration endpoint without affecting the page.
 
 ## CI
 
