@@ -52,6 +52,22 @@ smoke emits a narrow error to the existing `misty-step/vanity` Sentry project,
 whose enabled issue-stream workflows notify only `kaylee-alert-intake`.
 The Actions run retains the deployment ID, prior deployment ID, and smoke hashes.
 
+Before merge, the credential-free CI gate runs `node scripts/deploy.mjs --preflight`.
+This is the production entry point with only its inert-mode flag added: it
+validates the shared DigitalOcean POST request against the documented provider
+contract, constructs the static public artifact from the exact Git revision,
+serves it over loopback HTTP, and runs the production byte-for-byte asset smoke.
+Uncommitted files and private generators are never read or served. Unsupported,
+stray, combined, or repeated CLI arguments fail before any provider authentication
+or mutation. Production runs the same preflight before using its credential.
+
+DigitalOcean has no inert deployment POST. Token permissions, the private live app
+spec/Git-source configuration, current-master ownership, provider-side build,
+ACTIVE deployment/source identity, and real delivery on both domains necessarily
+remain trusted-main checks. Preflight does not regenerate Daybook's public quote
+or Taste/wishlist projections; the existing repo gate retains those privacy
+contracts. No new PR secrets or provider grants are required.
+
 There is no separate routine publication approval. Normal review and green CI,
 the approved generated public-data projection, and deliberate promotion of
 private/local drafts remain boundaries. Deployment never opens Daybook or
