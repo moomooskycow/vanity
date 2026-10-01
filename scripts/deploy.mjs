@@ -15,7 +15,6 @@ const publicFiles = [
   "index.html",
   "quotes.js",
   "quote-chyron.js",
-  "canary-observer.js",
   "assets/portrait-dots.svg",
   "assets/og-image.png",
 ];
