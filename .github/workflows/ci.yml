@@ -29,6 +29,8 @@ jobs:
           node-version: "22"
       - name: Run repo-owned gate
         run: ./scripts/check.sh
+      - name: Validate production request and committed public delivery without credentials
+        run: node scripts/deploy.mjs --preflight
 
   deploy:
     name: production deploy and smoke

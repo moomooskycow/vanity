@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawnSync } = require("node:child_process");
 const { createServer } = require("node:http");
 const { once } = require("node:events");
 const path = require("node:path");
@@ -32,4 +32,25 @@ test("production smoke rejects stale assets and error responses even with matchi
   await assert.rejects(smoke(revision, [target]), /Smoke revision mismatch.*quotes\.js/);
   mode = "error";
   await assert.rejects(smoke(revision, [target]), /Smoke HTTP failure/);
+});
+
+test("malformed deployment invocations fail before revision, authentication, or mutation", () => {
+  for (const args of [
+    ["--dry-run"],
+    ["deploy"],
+    ["--preflight", "stray"],
+    ["--preflight", "--preflight"],
+    ["--preflight", "--smoke-only"],
+    ["--smoke-only", "--unknown"],
+  ]) {
+    const result = spawnSync(process.execPath, ["scripts/deploy.mjs", ...args], {
+      cwd: root, encoding: "utf8",
+      env: { ...process.env, DIGITALOCEAN_API_TOKEN: "", GITHUB_SHA: "invalid" },
+      timeout: 5000,
+    });
+    assert.equal(result.status, 1, JSON.stringify(args));
+    assert.match(result.stderr, /Usage: node scripts\/deploy\.mjs/);
+    assert.doesNotMatch(result.stderr, /full Git revision|DIGITALOCEAN_API_TOKEN is required/);
+    assert.equal(result.stdout, "");
+  }
 });
