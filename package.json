@@ -1,0 +1,6 @@
+{
+  "name": "vanity",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "devDependencies": { "wrangler": "4.145.0" }
+}

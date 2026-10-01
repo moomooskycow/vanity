@@ -2,7 +2,7 @@
 
 Personal site for phaedrus.io: an oversized cobalt portrait, one short line,
 three links, and an accessible quote chyron. Static HTML, CSS, and JavaScript;
-no package manager or build step. Shared colors and controls come from
+no site build step. A pinned Wrangler CLI owns publication. Shared colors and controls come from
 [`@misty-step/aesthetic`](https://github.com/misty-step/aesthetic), pinned to a
 release tag; the approved poster layout and type scale are site-specific.
 
@@ -10,6 +10,7 @@ release tag; the approved poster layout and type scale are site-specific.
 
 ```bash
 # Static preview
+npm ci --ignore-scripts --no-audit --no-fund  # pinned deployment tooling
 python3 -m http.server 4173        # or: open index.html
 
 # Repo-owned CI gate (runs node --test)
@@ -45,25 +46,26 @@ python3 -m http.server 4173        # or: open index.html
 ## Deploy
 
 Reviewed merges to `master` publish automatically after the repo-owned gate.
-The CI `production deploy and smoke` job redeploys the existing DigitalOcean
-App Platform Git-source target, verifies its active source revision, and checks
+Both public domains are existing Cloudflare Worker `vanity` custom domains.
+The CI `production deploy and smoke` job publishes that actual Worker, verifies
+its sole active version at 100% with the exact merged Git revision tag, and checks
 the exact committed homepage, scripts, portrait, and social-card bytes on both
 `https://phaedrus.io` and `https://www.phaedrus.io`. A failed gate, deployment, or
 smoke emits a narrow error to the existing `misty-step/vanity` Sentry project,
 whose enabled issue-stream workflows notify only `kaylee-alert-intake`.
-The Actions run retains the deployment ID, prior deployment ID, and smoke hashes.
+The Actions run retains the Worker deployment/version, prior deployment, and hashes.
 
 Before merge, the credential-free CI gate runs `node scripts/deploy.mjs --preflight`.
-This is the production entry point with only its inert-mode flag added: it
-validates the shared DigitalOcean POST request against the documented provider
-contract, archives the exact Git revision into a temporary static artifact,
-serves repository-root files over loopback HTTP, and runs the production
-byte-for-byte asset smoke. This matches the existing provider's root output
-with no custom build; production verifies that private configuration before
-mutation. Uncommitted files are not archived, and private generators never run.
-Unsupported, stray, combined, or repeated CLI arguments fail before any provider
-authentication or mutation. Production runs the same preflight before using
-its credential. This does not claim provider-side build or delivery proof.
+This materializes only the five approved public files from the exact Git revision
+into a temporary artifact, invokes the actual pinned `wrangler deploy` command
+with only `--dry-run` added, and runs the production byte-for-byte asset smoke
+against the materialized files over loopback HTTP. Production runs that same
+native dry-run before the same invocation without the flag. No alternative
+publication request, fake provider API or credential is used in PR CI.
+Uncommitted files, source/config, evidence, local drafts and private generators
+are never uploaded. Unsupported, stray, combined, or repeated CLI arguments fail
+before provider authentication or mutation. Native dry-run proves compilation
+and packaging, not provider authorization, activation or public delivery.
 
 The artifact smoke covers five public files per domain (ten production byte
 checks). The retired Canary observer, configuration/health handlers, standalone
@@ -71,22 +73,27 @@ telemetry service, and their environment consumption have been removed. There
 are no browser config requests or ingest credentials. Historical secret inventory
 and archived Allie evidence are not active configuration and are left untouched.
 
-DigitalOcean has no inert deployment POST. Token permissions, the private live app
-spec/Git-source configuration, current-master ownership, provider-side build,
-ACTIVE deployment/source identity, and real delivery on both domains necessarily
-remain trusted-main checks. Preflight does not regenerate Daybook's public quote
-or Taste/wishlist projections; the existing repo gate retains those privacy
-contracts. No new PR secrets or provider grants are required.
+Provider authentication, current-master ownership, the exact active Worker version
+tag, and real delivery on both domains remain trusted-main checks. After upload,
+delivery readiness is bounded to 60 seconds using unchanged URLs and exact-byte
+expectations. Only the prior HTTP-200 bytes observed immediately before publication
+may coexist temporarily with exact new bytes; any HTTP error, timeout or unknown
+content fails immediately. Old bytes are never accepted as success: all ten
+checks must match the new artifact before the job passes. There is no cache purge,
+DNS change, cache-busting-only proof or generic retry.
+
+Preflight does not regenerate Daybook's public quote or Taste/wishlist projections;
+the existing repo gate retains those privacy contracts. No new PR secrets or
+provider grants are required.
 
 There is no separate routine publication approval. Normal review and green CI,
 the approved generated public-data projection, and deliberate promotion of
 private/local drafts remain boundaries. Deployment never opens Daybook or
 regenerates catalogs; local uncommitted files are not published.
 
-Estate owns the existing provider placement. The deployment job uses the
-repository secret `DIGITALOCEAN_API_TOKEN`; `.env.pass` references its existing
-pass credential for authorized local operations. The Sentry DSN is a public
-ingest key, not a bearer credential. Verify the deployment run after merge:
+The deployment job uses repository secret `CLOUDFLARE_API_TOKEN`; `.env.pass`
+references the existing native pass credential for authorized local operations.
+The Sentry DSN is a public ingest key, not a bearer credential. Verify after merge:
 
 ```bash
 gh run list --workflow ci.yml --branch master
@@ -99,10 +106,18 @@ agent-only error tagged `alert_route_probe=yes`; production stays unchanged.
 Confirm the error reaches Sentry and the Kaylee intake, not merely that sending
 returned success.
 
-The deployment summary retains the prior deployment for rollback. For recovery,
-use the existing App Platform rollback API/CLI to restore that known-good
-deployment, then run the smoke command with its source revision. Keep
-`skip_pin=true` so a recovery does not disable future merged-source deployments.
+The prior Worker deployment/version is retained for native version rollback.
+For recovery, use Wrangler's version rollback on `vanity`, then run the smoke
+command against the corresponding Git revision; do not weaken the byte checks.
+
+The 2026-10-01 retirement release exposed a wrong-publication-target failure:
+DigitalOcean app `b9e45cbb-9f2a-418e-ab91-dc5a2b157c25` became ACTIVE at
+`2221265eaf6d19a58b7cd86f39a2df2af046dfb7`, but the public Worker still served its
+September 20 static assets and Canary API code. This was not propagation delay.
+Earlier public-byte matches did not prove a live DigitalOcean source revision.
+The erroneous DigitalOcean publication caller is removed; the standing app is
+preserved because its wider ownership is not established. Public content remains
+the approved retirement artifact; this correction changes only its real publisher.
 
 ## CI
 

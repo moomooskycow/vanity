@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 
-const appId = "b9e45cbb-9f2a-418e-ab91-dc5a2b157c25";
+const accountId = "b069014f6a46558ea9146fb6c4ff8f6c";
 const domains = ["https://phaedrus.io", "https://www.phaedrus.io"];
 const publicFiles = [
   "index.html",
@@ -28,145 +28,134 @@ function publicArtifact(revision) {
   ]));
 }
 
-// One request producer for production and credential-free validation.
-function deploymentRequest() {
-  return {
-    url: `https://api.digitalocean.com/v2/apps/${appId}/deployments`,
-    method: "POST",
-    body: JSON.stringify({ force_build: true }),
-  };
+// One native provider invocation: PR adds only --dry-run; production does not.
+function deploymentArgs(directory, revision) {
+  return [
+    join(root, "node_modules/wrangler/bin/wrangler.js"), "deploy",
+    "--config", join(root, "wrangler.jsonc"), "--assets", directory,
+    "--tag", revision, "--message", `Git revision ${revision}`,
+  ];
 }
 
-function validateDeploymentRequest(request) {
-  // DigitalOcean apps_create_deployment, pinned provider contract:
-  // https://github.com/digitalocean/openapi/blob/257e7e4ad258fd0ff716a685ffed915922417178/specification/resources/apps/apps_create_deployment.yml
-  // Its request schema permits force_build:boolean; there is no inert POST mode.
-  assert.equal(request.method, "POST");
-  assert.match(request.url, /^https:\/\/api\.digitalocean\.com\/v2\/apps\/[a-f0-9-]{36}\/deployments$/);
-  const body = JSON.parse(request.body);
-  assert.equal(typeof body.force_build, "boolean", "Provider force_build must be boolean");
-  assert.deepEqual(Object.keys(body), ["force_build"], "Unsupported deployment request field");
-}
-
-async function preflight(revision, request) {
-  validateDeploymentRequest(request);
-  // The current provider target has no custom build and serves repository root.
-  // Materialize that real static artifact from Git, not a whitelist/mock server
-  // or the local checkout. Archive excludes uncommitted drafts and private data.
-  const temporary = mkdtempSync(join(tmpdir(), "vanity-preflight-"));
-  const directory = join(temporary, "public");
-  let server;
+async function preflight(revision, directory, args) {
+  execFileSync(process.execPath, [...args, "--dry-run"], { cwd: root, stdio: "inherit" });
+  const server = createServer((incoming, response) => {
+    const pathname = new URL(incoming.url, "http://localhost").pathname;
+    const file = resolve(directory, `.${pathname}${pathname.endsWith("/") ? "index.html" : ""}`);
+    try {
+      assert.ok(file.startsWith(`${directory}${sep}`), "Path escapes artifact");
+      response.end(readFileSync(file));
+    } catch {
+      response.statusCode = 404;
+      response.end();
+    }
+  });
   try {
-    mkdirSync(directory);
-    const archive = join(temporary, "source.tar");
-    execFileSync("git", ["archive", revision, "--output", archive], { cwd: root });
-    execFileSync("tar", ["-xf", archive, "-C", directory]);
-    server = createServer((incoming, response) => {
-      const pathname = new URL(incoming.url, "http://localhost").pathname;
-      const file = resolve(directory, `.${pathname}${pathname.endsWith("/") ? "index.html" : ""}`);
-      try {
-        assert.ok(file.startsWith(`${directory}${sep}`), "Path escapes artifact");
-        response.end(readFileSync(file));
-      } catch {
-        response.statusCode = 404;
-        response.end();
-      }
-    });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
-    const target = `http://127.0.0.1:${server.address().port}`;
-    const results = await smoke(revision, [target]);
+    const results = await smoke(revision, [`http://127.0.0.1:${server.address().port}`]);
     console.log(JSON.stringify({
-      revision, preflight: "pass", request: { url: request.url, method: request.method, body: JSON.parse(request.body) },
+      revision, preflight: "pass", command: [process.execPath, ...args, "--dry-run"],
       publicAssets: results.length,
-      trustedMainOnly: ["provider authentication and app spec", "current master", "remote build", "ACTIVE exact source", "both-domain delivery"],
+      trustedMainOnly: ["provider authentication", "current master", "active Worker version tag", "both-domain delivery"],
     }));
   } finally {
-    if (server?.listening) {
+    if (server.listening) {
       await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
-    rmSync(temporary, { recursive: true });
   }
 }
 
-// Only the committed, approved public surface is inspected. This never opens
-// Daybook, regenerates catalogs, or uploads local drafts or diagnostic content.
-export async function smoke(revision, targets = domains) {
-  const artifact = publicArtifact(revision);
+// Only committed, approved public files are materialized or delivered. Neither
+// Daybook nor local drafts, generators, source/config or evidence are uploaded.
+async function readDelivery(revision, targets, deadline = Infinity) {
   const results = [];
   for (const domain of targets) {
     for (const path of publicFiles) {
       const url = new URL(path === "index.html" ? "/" : `/${path}`, domain);
       url.searchParams.set("vanity_revision", revision);
+      const remaining = deadline - Date.now();
+      assert.ok(remaining > 0, "Healthy edge convergence timed out");
       const response = await fetch(url, {
         headers: { "cache-control": "no-cache" },
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(Math.max(1, Math.ceil(Math.min(30_000, remaining)))),
       });
       assert.equal(response.status, 200, `Smoke HTTP failure: ${domain}/${path}`);
-      const expected = digest(artifact.get(path));
-      const actual = digest(Buffer.from(await response.arrayBuffer()));
-      assert.equal(actual, expected, `Smoke revision mismatch: ${domain}/${path}`);
-      const result = { domain, path, sha256: actual, status: "pass" };
-      results.push(result);
-      console.log(JSON.stringify(result));
+      results.push({ domain, path, sha256: digest(Buffer.from(await response.arrayBuffer())), status: "pass" });
     }
   }
   return results;
 }
 
-async function api(path, request) {
-  assert.ok(process.env.DIGITALOCEAN_API_TOKEN, "DIGITALOCEAN_API_TOKEN is required");
-  const method = request?.method ?? "GET";
-  const response = await fetch(request?.url ?? `https://api.digitalocean.com/v2/apps/${appId}${path}`, {
-    method,
-    headers: {
-      authorization: `Bearer ${process.env.DIGITALOCEAN_API_TOKEN.trim()}`,
-      "content-type": "application/json",
-    },
-    body: request?.body,
-    signal: AbortSignal.timeout(30_000),
-  });
-  assert.ok(response.ok, `DigitalOcean ${method} ${path || "/"}: HTTP ${response.status}`);
-  return response.json();
+export async function smoke(revision, targets = domains) {
+  const artifact = publicArtifact(revision);
+  const results = await readDelivery(revision, targets);
+  for (const result of results) {
+    assert.equal(result.sha256, digest(artifact.get(result.path)),
+      `Smoke revision mismatch: ${result.domain}/${result.path}`);
+    console.log(JSON.stringify(result));
+  }
+  return results;
 }
 
-async function deploy(revision, request) {
-  const { app } = await api("");
-  const source = app.spec.static_sites?.find((site) => site.name === "web");
-  assert.equal(source?.git?.repo_clone_url, "https://github.com/moomooskycow/vanity.git");
-  assert.equal(source.git.branch, "master");
-  assert.equal(source.output_dir, "/", "Preflight requires the provider's static repository-root output");
-  assert.ok(!source.source_dir || source.source_dir === "/", "Provider source directory differs from preflight");
-  assert.ok(!source.build_command, "Provider custom build is not covered by static preflight");
+// Readiness after publication, not a generic retry: only the observed HTTP-200
+// prior bytes may coexist with exact new bytes. Errors or unknown bytes fail now.
+// The URL, headers, status and exact-byte expectations never change between polls.
+export async function awaitDelivery(revision, previous, targets = domains, timeoutMs = 60_000) {
+  const expected = new Map([...publicArtifact(revision)].map(([path, bytes]) => [path, digest(bytes)]));
+  const old = new Map(previous.map((result) => [`${result.domain}/${result.path}`, result.sha256]));
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    const results = await readDelivery(revision, targets, deadline);
+    const pending = [];
+    for (const result of results) {
+      if (result.sha256 === expected.get(result.path)) continue;
+      assert.equal(result.sha256, old.get(`${result.domain}/${result.path}`),
+        `Unexpected edge content: ${result.domain}/${result.path}`);
+      pending.push({ domain: result.domain, path: result.path });
+    }
+    if (pending.length === 0) {
+      for (const result of results) console.log(JSON.stringify(result));
+      return results;
+    }
+    assert.ok(Date.now() < deadline, "Healthy edge convergence timed out");
+    console.log(JSON.stringify({ revision, readiness: "prior public bytes still visible", pending }));
+    await delay(Math.min(2_000, deadline - Date.now()));
+  }
+}
+
+async function api(path) {
+  assert.ok(process.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN is required");
+  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/vanity${path}`, {
+    headers: { authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN.trim()}` },
+    signal: AbortSignal.timeout(30_000),
+  });
+  assert.ok(response.ok, `Cloudflare GET ${path}: HTTP ${response.status}`);
+  const body = await response.json();
+  assert.equal(body.success, true, "Cloudflare API rejected version lookup");
+  return body.result;
+}
+
+async function deploy(revision, args) {
+  assert.ok(process.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN is required");
   const [master] = execFileSync("git", ["ls-remote", "origin", "refs/heads/master"], { cwd: root, encoding: "utf8" }).split(/\s/);
   assert.equal(master, revision, "Source revision is no longer master; the newer merge owns deployment");
-  const previous = app.active_deployment?.id;
-  const { deployment: created } = await api("/deployments", request);
-  const deploymentUrl = `https://cloud.digitalocean.com/apps/${appId}/deployments/${created.id}`;
-  console.log(JSON.stringify({ revision, deployment: created.id, previous, deploymentUrl }));
+  const { deployments: previous } = await api("/deployments");
+  const priorDelivery = await readDelivery(revision, domains);
+  execFileSync(process.execPath, args, { cwd: root, stdio: "inherit" });
+  const { deployments } = await api("/deployments");
+  const active = deployments[0];
+  assert.equal(active.versions.length, 1, "Expected one active production version");
+  assert.equal(active.versions[0].percentage, 100, "Production version is not fully active");
+  const versionId = active.versions[0].version_id;
+  const version = await api(`/versions/${versionId}`);
+  assert.equal(version.annotations["workers/tag"], revision, "Cloudflare published a different source revision");
+  const deploymentUrl = `https://dash.cloudflare.com/${accountId}/workers/services/view/vanity/production/deployments`;
+  console.log(JSON.stringify({ revision, deployment: active.id, version: versionId, previous: previous[0]?.id, deploymentUrl }));
+  const results = await awaitDelivery(revision, priorDelivery);
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-      `## Vanity production\n\nRevision: \`${revision}\`\n\n[Deployment ${created.id}](${deploymentUrl})\n\nPrior deployment retained: \`${previous}\`\n`);
-  }
-
-  const deadline = Date.now() + 15 * 60_000;
-  let deployment = created;
-  while (deployment.phase !== "ACTIVE") {
-    assert.ok(!["ERROR", "CANCELED", "SUPERSEDED"].includes(deployment.phase),
-      `Deployment ${created.id} failed: ${deployment.phase}`);
-    assert.ok(Date.now() < deadline, `Deployment ${created.id} timed out`);
-    console.log(JSON.stringify({ deployment: created.id, phase: deployment.phase }));
-    await delay(10_000);
-    ({ deployment } = await api(`/deployments/${created.id}`));
-  }
-  assert.equal(deployment.static_sites?.find((site) => site.name === "web")?.source_commit_hash,
-    revision, "DigitalOcean published a different source revision; see deployment and newer master runs");
-  const { app: active } = await api("");
-  assert.equal(active.active_deployment?.id, created.id, "Deployment is not the active production deployment");
-  const results = await smoke(revision);
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-      `\nPost-deploy smoke passed: ${results.length} exact public asset checks across both domains.\n`);
+      `## Vanity production\n\nRevision: \`${revision}\`\n\n[Worker deployment ${active.id}](${deploymentUrl})\n\nActive version: \`${versionId}\` at 100%. Prior deployment retained: \`${previous[0]?.id}\`.\n\nPost-deploy smoke passed: ${results.length} exact public asset checks across both domains.\n`);
   }
 }
 
@@ -178,8 +167,20 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   assert.match(revision, /^[a-f0-9]{40}$/, "A full Git revision is required");
   if (args[0] === "--smoke-only") await smoke(revision);
   else {
-    const request = deploymentRequest();
-    await preflight(revision, request);
-    if (args[0] !== "--preflight") await deploy(revision, request);
+    const temporary = mkdtempSync(join(tmpdir(), "vanity-deploy-"));
+    try {
+      const directory = join(temporary, "public");
+      mkdirSync(directory);
+      for (const [path, bytes] of publicArtifact(revision)) {
+        const file = join(directory, path);
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, bytes);
+      }
+      const invocation = deploymentArgs(directory, revision);
+      await preflight(revision, directory, invocation);
+      if (args[0] !== "--preflight") await deploy(revision, invocation);
+    } finally {
+      rmSync(temporary, { recursive: true });
+    }
   }
 }

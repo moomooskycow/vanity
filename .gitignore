@@ -15,3 +15,7 @@ test-results/
 # Allie: CI-regenerated evidence + cloned tooling (the manifest stays tracked).
 .allie/verify/
 .allie/tooling/
+
+# Native deployment tooling and transient local Worker state.
+node_modules/
+.wrangler/

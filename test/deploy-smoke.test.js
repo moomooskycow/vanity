@@ -54,3 +54,41 @@ test("malformed deployment invocations fail before revision, authentication, or 
     assert.equal(result.stdout, "");
   }
 });
+
+test("edge readiness allows only observed old bytes until exact new delivery, and fails closed otherwise", async (t) => {
+  const { createHash } = require("node:crypto");
+  const { awaitDelivery } = await import("../scripts/deploy.mjs");
+  const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const oldQuote = 'window.QUOTES = [["Prior", "published quote"]];\n';
+  let mode = "transition";
+  const server = createServer((request, response) => {
+    const pathname = new URL(request.url, "http://localhost").pathname;
+    const file = pathname === "/" ? "index.html" : pathname.slice(1);
+    if (mode === "error") {
+      response.statusCode = 503;
+      response.end(oldQuote);
+    } else if (file === "quotes.js" && mode !== "new") {
+      response.end(mode === "unknown" ? "unrecognized content" : oldQuote);
+      if (mode === "transition") mode = "new";
+    } else {
+      response.end(execFileSync("git", ["show", `${revision}:${file}`], { cwd: root }));
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const target = `http://127.0.0.1:${server.address().port}`;
+  const prior = [{ domain: target, path: "quotes.js", sha256: createHash("sha256").update(oldQuote).digest("hex") }];
+
+  const ready = await awaitDelivery(revision, prior, [target], 5000);
+  const deliveredQuote = ready.find((result) => result.path === "quotes.js");
+  const newQuote = execFileSync("git", ["show", `${revision}:quotes.js`], { cwd: root });
+  assert.equal(deliveredQuote.sha256, createHash("sha256").update(newQuote).digest("hex"));
+
+  mode = "unknown";
+  await assert.rejects(awaitDelivery(revision, prior, [target], 5000), /Unexpected edge content/);
+  mode = "error";
+  await assert.rejects(awaitDelivery(revision, prior, [target], 5000), /Smoke HTTP failure/);
+  mode = "old";
+  await assert.rejects(awaitDelivery(revision, prior, [target], 50), /Healthy edge convergence timed out/);
+});
