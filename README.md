@@ -55,11 +55,14 @@ The Actions run retains the deployment ID, prior deployment ID, and smoke hashes
 Before merge, the credential-free CI gate runs `node scripts/deploy.mjs --preflight`.
 This is the production entry point with only its inert-mode flag added: it
 validates the shared DigitalOcean POST request against the documented provider
-contract, constructs the static public artifact from the exact Git revision,
-serves it over loopback HTTP, and runs the production byte-for-byte asset smoke.
-Uncommitted files and private generators are never read or served. Unsupported,
-stray, combined, or repeated CLI arguments fail before any provider authentication
-or mutation. Production runs the same preflight before using its credential.
+contract, archives the exact Git revision into a temporary static artifact,
+serves repository-root files over loopback HTTP, and runs the production
+byte-for-byte asset smoke. This matches the existing provider's root output
+with no custom build; production verifies that private configuration before
+mutation. Uncommitted files are not archived, and private generators never run.
+Unsupported, stray, combined, or repeated CLI arguments fail before any provider
+authentication or mutation. Production runs the same preflight before using
+its credential. This does not claim provider-side build or delivery proof.
 
 DigitalOcean has no inert deployment POST. Token permissions, the private live app
 spec/Git-source configuration, current-master ownership, provider-side build,
