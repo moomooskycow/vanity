@@ -32,13 +32,20 @@ test("title checking treats shell syntax as inert data and rejects malformed tit
   assert.equal(existsSync(sentinel), false);
 });
 
-test("native workflow approval is restricted to the current same-repository generator PR and configured runs", async () => {
+test("native workflow approval is restricted to the current same-repository generator PR and configured runs", async (t) => {
   const { releasePr, nativeRun } = await import("../scripts/release.mjs");
   const repo = "moomooskycow/vanity", sha = "a".repeat(40);
-  const valid = { state: "open", base: { ref: "master" }, head: { repo: { full_name: repo }, ref: "release-please--branches--master", sha }, user: { login: "github-actions[bot]" } };
-  assert.equal(releasePr(valid, repo), sha);
+  const generated = { number: 140, headBranchName: "release-please--branches--master--components--vanity" };
+  const valid = { state: "open", base: { ref: "master" }, head: { repo: { full_name: repo }, ref: generated.headBranchName, sha }, user: { login: "github-actions[bot]" } };
+  await t.test("accepts the actual release-please component branch", () => {
+    assert.equal(releasePr(valid, repo, generated), sha);
+  });
+  await t.test("rejects a look-alike branch absent from the generator output", () => {
+    const pr = structuredClone(valid); pr.head.ref = "release-please--branches--master";
+    assert.throws(() => releasePr(pr, repo, generated));
+  });
   for (const mutate of [p => p.state = "closed", p => p.base.ref = "other", p => p.head.repo.full_name = "attacker/vanity", p => p.head.ref = "other", p => p.user.login = "other", p => p.head.sha = "short"]) {
-    const pr = structuredClone(valid); mutate(pr); assert.throws(() => releasePr(pr, repo));
+    const pr = structuredClone(valid); mutate(pr); assert.throws(() => releasePr(pr, repo, generated));
   }
   for (const workflow of ["ci.yml", "allie.yml"]) {
     const validRun = { head_sha: sha, head_repository: { full_name: repo }, path: `.github/workflows/${workflow}`, event: "pull_request" };
