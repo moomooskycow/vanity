@@ -25,7 +25,7 @@ const event = {
   }] },
   fingerprint: ["vanity-deploy", process.env.GITHUB_RUN_ID, process.env.GITHUB_RUN_ATTEMPT],
   tags: { repository: "moomooskycow/vanity", alert_route_probe: probe ? "yes" : "no" },
-  extra: { run_url: runUrl, check_result: process.env.CHECK_RESULT, deploy_result: process.env.DEPLOY_RESULT },
+  extra: { run_url: runUrl, check_result: process.env.CHECK_RESULT, deploy_result: process.env.DEPLOY_RESULT, release_result: process.env.RELEASE_RESULT },
 };
 const response = await fetch(endpoint, {
   method: "POST",

@@ -8,13 +8,13 @@ const test = require("node:test");
 const root = path.resolve(__dirname, "..");
 
 test("production smoke rejects stale assets and error responses even with matching content", async (t) => {
-  const { smoke } = await import("../scripts/deploy.mjs");
+  const { smoke, publicArtifact } = await import("../scripts/deploy.mjs");
   const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   let mode = "valid";
   const server = createServer((request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
-    const file = pathname === "/" ? "index.html" : pathname.slice(1);
-    const bytes = execFileSync("git", ["show", `${revision}:${file}`], { cwd: root });
+    const file = pathname === "/" ? "index.html" : pathname === "/changelog" ? "changelog.html" : pathname.slice(1);
+    const bytes = publicArtifact(revision).get(file);
     if (mode === "stale" && file === "quotes.js") {
       response.end('window.QUOTES = [["Old", "release"]];\n');
     } else {
@@ -57,13 +57,13 @@ test("malformed deployment invocations fail before revision, authentication, or 
 
 test("edge readiness allows only observed old bytes until exact new delivery, and fails closed otherwise", async (t) => {
   const { createHash } = require("node:crypto");
-  const { awaitDelivery } = await import("../scripts/deploy.mjs");
+  const { awaitDelivery, publicArtifact } = await import("../scripts/deploy.mjs");
   const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   const oldQuote = 'window.QUOTES = [["Prior", "published quote"]];\n';
   let mode = "transition";
   const server = createServer((request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
-    const file = pathname === "/" ? "index.html" : pathname.slice(1);
+    const file = pathname === "/" ? "index.html" : pathname === "/changelog" ? "changelog.html" : pathname.slice(1);
     if (mode === "error") {
       response.statusCode = 503;
       response.end(oldQuote);
@@ -71,7 +71,7 @@ test("edge readiness allows only observed old bytes until exact new delivery, an
       response.end(mode === "unknown" ? "unrecognized content" : oldQuote);
       if (mode === "transition") mode = "new";
     } else {
-      response.end(execFileSync("git", ["show", `${revision}:${file}`], { cwd: root }));
+      response.end(publicArtifact(revision).get(file));
     }
   });
   server.listen(0, "127.0.0.1");

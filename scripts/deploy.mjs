@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
+import { changelog } from "./changelog.mjs";
 
 const accountId = "b069014f6a46558ea9146fb6c4ff8f6c";
 const domains = ["https://phaedrus.io", "https://www.phaedrus.io"];
@@ -21,11 +22,15 @@ const publicFiles = [
 const root = fileURLToPath(new URL("../", import.meta.url));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
-function publicArtifact(revision) {
+export function publicArtifact(revision) {
   assert.match(revision, /^[a-f0-9]{40}$/, "A full Git revision is required");
-  return new Map(publicFiles.map((path) => [
+  const artifact = new Map(publicFiles.map((path) => [
     path, execFileSync("git", ["show", `${revision}:${path}`], { cwd: root }),
   ]));
+  if (execFileSync("git", ["ls-tree", "--name-only", revision, "changelog.html"], { cwd: root, encoding: "utf8" }).trim()) {
+    artifact.set("changelog.html", changelog(revision));
+  }
+  return artifact;
 }
 
 // One native provider invocation: PR adds only --dry-run; production does not.
@@ -40,7 +45,8 @@ function deploymentArgs(directory, revision) {
 async function preflight(revision, directory, args) {
   execFileSync(process.execPath, [...args, "--dry-run"], { cwd: root, stdio: "inherit" });
   const server = createServer((incoming, response) => {
-    const pathname = new URL(incoming.url, "http://localhost").pathname;
+    const requested = new URL(incoming.url, "http://localhost").pathname;
+    const pathname = requested === "/changelog" ? "/changelog.html" : requested;
     const file = resolve(directory, `.${pathname}${pathname.endsWith("/") ? "index.html" : ""}`);
     try {
       assert.ok(file.startsWith(`${directory}${sep}`), "Path escapes artifact");
@@ -68,11 +74,11 @@ async function preflight(revision, directory, args) {
 
 // Only committed, approved public files are materialized or delivered. Neither
 // Daybook nor local drafts, generators, source/config or evidence are uploaded.
-async function readDelivery(revision, targets, deadline = Infinity) {
+async function readDelivery(revision, targets, deadline = Infinity, paths = [...publicArtifact(revision).keys()]) {
   const results = [];
   for (const domain of targets) {
-    for (const path of publicFiles) {
-      const url = new URL(path === "index.html" ? "/" : `/${path}`, domain);
+    for (const path of paths) {
+      const url = new URL(path === "index.html" ? "/" : path === "changelog.html" ? "/changelog" : `/${path}`, domain);
       url.searchParams.set("vanity_revision", revision);
       const remaining = deadline - Date.now();
       assert.ok(remaining > 0, "Healthy edge convergence timed out");
@@ -141,7 +147,11 @@ async function deploy(revision, args) {
   const [master] = execFileSync("git", ["ls-remote", "origin", "refs/heads/master"], { cwd: root, encoding: "utf8" }).split(/\s/);
   assert.equal(master, revision, "Source revision is no longer master; the newer merge owns deployment");
   const { deployments: previous } = await api("/deployments");
-  const priorDelivery = await readDelivery(revision, domains);
+  const priorVersion = await api(`/versions/${previous[0].versions[0].version_id}`);
+  const priorRevision = priorVersion.annotations["workers/tag"];
+  // Read only the previous artifact's paths: a genuinely new page does not
+  // exist before its first deployment. Post-deploy still requires every new byte.
+  const priorDelivery = await readDelivery(revision, domains, Infinity, [...publicArtifact(priorRevision).keys()]);
   execFileSync(process.execPath, args, { cwd: root, stdio: "inherit" });
   const { deployments } = await api("/deployments");
   const active = deployments[0];
