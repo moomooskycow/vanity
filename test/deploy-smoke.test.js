@@ -66,6 +66,39 @@ test("the explicit PR source wins over GitHub's reserved merge revision", () => 
   assert.doesNotMatch(result.stderr, /Smoke HTTP|fetch failed/);
 });
 
+test("only a new path's exact observed prior 404 may remain pending, never count as success", async (t) => {
+  const { createHash } = require("node:crypto");
+  const { awaitDelivery, publicArtifact, smoke } = await import("../scripts/deploy.mjs");
+  const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const artifact = publicArtifact(revision);
+  let mode = "transition";
+  const server = createServer((request, response) => {
+    const pathname = new URL(request.url, "http://localhost").pathname;
+    const file = pathname === "/" ? "index.html" : pathname === "/changelog" ? "changelog.html" : pathname.slice(1);
+    if (file === "changelog.html" && mode !== "new") {
+      response.statusCode = mode === "error" ? 503 : 404;
+      response.end(mode === "unknown" ? "unobserved missing content" : "");
+      if (mode === "transition") mode = "new";
+    } else if (file === "index.html" && mode === "missing-existing") {
+      response.statusCode = 404; response.end();
+    } else response.end(artifact.get(file));
+  });
+  server.listen(0, "127.0.0.1"); await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const target = `http://127.0.0.1:${server.address().port}`;
+  const previous = [{ domain: target, path: "changelog.html", httpStatus: 404, sha256: createHash("sha256").update("").digest("hex") }];
+  assert.equal((await awaitDelivery(revision, previous, [target], 5000)).every(r => r.httpStatus === 200), true);
+  mode = "unknown";
+  await assert.rejects(awaitDelivery(revision, previous, [target], 5000), /Unexpected edge content/);
+  mode = "missing-existing";
+  await assert.rejects(awaitDelivery(revision, previous, [target], 5000), /Smoke HTTP failure.*index.html/);
+  mode = "error";
+  await assert.rejects(awaitDelivery(revision, previous, [target], 5000), /Smoke HTTP failure/);
+  mode = "absent";
+  await assert.rejects(smoke(revision, [target]), /Smoke HTTP failure/);
+  await assert.rejects(awaitDelivery(revision, previous, [target], 50), /Healthy edge convergence timed out/);
+});
+
 test("edge readiness allows only observed old bytes until exact new delivery, and fails closed otherwise", async (t) => {
   const { createHash } = require("node:crypto");
   const { awaitDelivery, publicArtifact } = await import("../scripts/deploy.mjs");

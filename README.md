@@ -87,8 +87,10 @@ Provider authentication, current-master ownership, the exact active Worker versi
 tag, and real delivery on both domains remain trusted-main checks. After upload,
 delivery readiness is bounded to 60 seconds using unchanged URLs and exact-byte
 expectations. Only the prior HTTP-200 bytes observed immediately before publication
-may coexist temporarily with exact new bytes; any HTTP error, timeout or unknown
-content fails immediately. Old bytes are never accepted as success: all ten
+may coexist temporarily with exact new bytes. For a genuinely new path absent
+from the exact prior source, only its specifically observed prior 404 bytes may
+also remain pending. All other HTTP errors, timeouts or unknown content fail
+immediately. Prior bytes are never accepted as success: all twelve
 checks must match the new artifact before the job passes. There is no cache purge,
 DNS change, cache-busting-only proof or generic retry.
 

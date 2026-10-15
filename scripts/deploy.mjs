@@ -74,7 +74,7 @@ async function preflight(revision, directory, args) {
 
 // Only committed, approved public files are materialized or delivered. Neither
 // Daybook nor local drafts, generators, source/config or evidence are uploaded.
-async function readDelivery(revision, targets, deadline, paths) {
+async function readDelivery(revision, targets, deadline, paths, absent = new Set()) {
   const results = [];
   for (const domain of targets) {
     for (const path of paths) {
@@ -86,8 +86,10 @@ async function readDelivery(revision, targets, deadline, paths) {
         headers: { "cache-control": "no-cache" },
         signal: AbortSignal.timeout(Math.max(1, Math.ceil(Math.min(30_000, remaining)))),
       });
-      assert.equal(response.status, 200, `Smoke HTTP failure: ${domain}/${path}`);
-      results.push({ domain, path, sha256: digest(Buffer.from(await response.arrayBuffer())), status: "pass" });
+      if (!(response.status === 404 && absent.has(`${domain}/${path}`))) {
+        assert.equal(response.status, 200, `Smoke HTTP failure: ${domain}/${path}`);
+      }
+      results.push({ domain, path, sha256: digest(Buffer.from(await response.arrayBuffer())), httpStatus: response.status, status: response.status === 200 ? "pass" : "prior-absent" });
     }
   }
   return results;
@@ -104,19 +106,22 @@ export async function smoke(revision, targets = domains) {
   return results;
 }
 
-// Readiness after publication, not a generic retry: only the observed HTTP-200
-// prior bytes may coexist with exact new bytes. Errors or unknown bytes fail now.
+// Readiness after publication, not a generic retry: only observed prior bytes
+// (including a genuinely new path's exact prior 404) may coexist with new bytes.
 // The URL, headers, status and exact-byte expectations never change between polls.
 export async function awaitDelivery(revision, previous, targets = domains, timeoutMs = 60_000) {
   const expected = new Map([...publicArtifact(revision)].map(([path, bytes]) => [path, digest(bytes)]));
-  const old = new Map(previous.map((result) => [`${result.domain}/${result.path}`, result.sha256]));
+  const old = new Map(previous.map((result) => [`${result.domain}/${result.path}`, result]));
+  const absent = new Set(previous.filter((result) => result.httpStatus === 404).map((result) => `${result.domain}/${result.path}`));
   const deadline = Date.now() + timeoutMs;
   while (true) {
-    const results = await readDelivery(revision, targets, deadline, [...expected.keys()]);
+    const results = await readDelivery(revision, targets, deadline, [...expected.keys()], absent);
     const pending = [];
     for (const result of results) {
-      if (result.sha256 === expected.get(result.path)) continue;
-      assert.equal(result.sha256, old.get(`${result.domain}/${result.path}`),
+      if (result.httpStatus === 200 && result.sha256 === expected.get(result.path)) continue;
+      const prior = old.get(`${result.domain}/${result.path}`);
+      assert.equal(result.httpStatus, prior?.httpStatus ?? 200, `Unexpected edge status: ${result.domain}/${result.path}`);
+      assert.equal(result.sha256, prior?.sha256,
         `Unexpected edge content: ${result.domain}/${result.path}`);
       pending.push({ domain: result.domain, path: result.path });
     }
@@ -149,9 +154,12 @@ async function deploy(revision, args) {
   const { deployments: previous } = await api("/deployments");
   const priorVersion = await api(`/versions/${previous[0].versions[0].version_id}`);
   const priorRevision = priorVersion.annotations["workers/tag"];
-  // Read only the previous artifact's paths: a genuinely new page does not
-  // exist before its first deployment. Post-deploy still requires every new byte.
-  const priorDelivery = await readDelivery(revision, domains, Infinity, [...publicArtifact(priorRevision).keys()]);
+  const priorArtifact = publicArtifact(priorRevision);
+  const paths = [...publicArtifact(revision).keys()];
+  // A missing path is permissible only when the exact prior source did not
+  // contain it. Observe its real 404 bytes before mutation, never assume them.
+  const absent = new Set(domains.flatMap((domain) => paths.filter((path) => !priorArtifact.has(path)).map((path) => `${domain}/${path}`)));
+  const priorDelivery = await readDelivery(revision, domains, Infinity, paths, absent);
   execFileSync(process.execPath, args, { cwd: root, stdio: "inherit" });
   const { deployments } = await api("/deployments");
   const active = deployments[0];
