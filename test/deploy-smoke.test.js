@@ -10,11 +10,12 @@ const root = path.resolve(__dirname, "..");
 test("production smoke rejects stale assets and error responses even with matching content", async (t) => {
   const { smoke, publicArtifact } = await import("../scripts/deploy.mjs");
   const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const artifact = publicArtifact(revision);
   let mode = "valid";
   const server = createServer((request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
     const file = pathname === "/" ? "index.html" : pathname === "/changelog" ? "changelog.html" : pathname.slice(1);
-    const bytes = publicArtifact(revision).get(file);
+    const bytes = artifact.get(file);
     if (mode === "stale" && file === "quotes.js") {
       response.end('window.QUOTES = [["Old", "release"]];\n');
     } else {
@@ -59,6 +60,7 @@ test("edge readiness allows only observed old bytes until exact new delivery, an
   const { createHash } = require("node:crypto");
   const { awaitDelivery, publicArtifact } = await import("../scripts/deploy.mjs");
   const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const artifact = publicArtifact(revision);
   const oldQuote = 'window.QUOTES = [["Prior", "published quote"]];\n';
   let mode = "transition";
   const server = createServer((request, response) => {
@@ -71,7 +73,7 @@ test("edge readiness allows only observed old bytes until exact new delivery, an
       response.end(mode === "unknown" ? "unrecognized content" : oldQuote);
       if (mode === "transition") mode = "new";
     } else {
-      response.end(publicArtifact(revision).get(file));
+      response.end(artifact.get(file));
     }
   });
   server.listen(0, "127.0.0.1");

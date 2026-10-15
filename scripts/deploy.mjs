@@ -74,7 +74,7 @@ async function preflight(revision, directory, args) {
 
 // Only committed, approved public files are materialized or delivered. Neither
 // Daybook nor local drafts, generators, source/config or evidence are uploaded.
-async function readDelivery(revision, targets, deadline = Infinity, paths = [...publicArtifact(revision).keys()]) {
+async function readDelivery(revision, targets, deadline, paths) {
   const results = [];
   for (const domain of targets) {
     for (const path of paths) {
@@ -95,7 +95,7 @@ async function readDelivery(revision, targets, deadline = Infinity, paths = [...
 
 export async function smoke(revision, targets = domains) {
   const artifact = publicArtifact(revision);
-  const results = await readDelivery(revision, targets);
+  const results = await readDelivery(revision, targets, Infinity, [...artifact.keys()]);
   for (const result of results) {
     assert.equal(result.sha256, digest(artifact.get(result.path)),
       `Smoke revision mismatch: ${result.domain}/${result.path}`);
@@ -112,7 +112,7 @@ export async function awaitDelivery(revision, previous, targets = domains, timeo
   const old = new Map(previous.map((result) => [`${result.domain}/${result.path}`, result.sha256]));
   const deadline = Date.now() + timeoutMs;
   while (true) {
-    const results = await readDelivery(revision, targets, deadline);
+    const results = await readDelivery(revision, targets, deadline, [...expected.keys()]);
     const pending = [];
     for (const result of results) {
       if (result.sha256 === expected.get(result.path)) continue;
