@@ -8,13 +8,14 @@ const test = require("node:test");
 const root = path.resolve(__dirname, "..");
 
 test("production smoke rejects stale assets and error responses even with matching content", async (t) => {
-  const { smoke } = await import("../scripts/deploy.mjs");
+  const { smoke, publicArtifact } = await import("../scripts/deploy.mjs");
   const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const artifact = publicArtifact(revision);
   let mode = "valid";
   const server = createServer((request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
-    const file = pathname === "/" ? "index.html" : pathname.slice(1);
-    const bytes = execFileSync("git", ["show", `${revision}:${file}`], { cwd: root });
+    const file = pathname === "/" ? "index.html" : pathname === "/changelog" ? "changelog.html" : pathname.slice(1);
+    const bytes = artifact.get(file);
     if (mode === "stale" && file === "quotes.js") {
       response.end('window.QUOTES = [["Old", "release"]];\n');
     } else {
@@ -55,15 +56,59 @@ test("malformed deployment invocations fail before revision, authentication, or 
   }
 });
 
+test("the explicit PR source wins over GitHub's reserved merge revision", () => {
+  const result = spawnSync(process.execPath, ["scripts/deploy.mjs", "--smoke-only"], {
+    cwd: root, encoding: "utf8", timeout: 5000,
+    env: { ...process.env, SOURCE_SHA: "invalid-source", GITHUB_SHA: "a".repeat(40) },
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /A full Git revision is required/);
+  assert.doesNotMatch(result.stderr, /Smoke HTTP|fetch failed/);
+});
+
+test("only a new path's exact observed prior 404 may remain pending, never count as success", async (t) => {
+  const { createHash } = require("node:crypto");
+  const { awaitDelivery, publicArtifact, smoke } = await import("../scripts/deploy.mjs");
+  const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const artifact = publicArtifact(revision);
+  let mode = "transition";
+  const server = createServer((request, response) => {
+    const pathname = new URL(request.url, "http://localhost").pathname;
+    const file = pathname === "/" ? "index.html" : pathname === "/changelog" ? "changelog.html" : pathname.slice(1);
+    if (file === "changelog.html" && mode !== "new") {
+      response.statusCode = mode === "error" ? 503 : 404;
+      response.end(mode === "unknown" ? "unobserved missing content" : "");
+      if (mode === "transition") mode = "new";
+    } else if (file === "index.html" && mode === "missing-existing") {
+      response.statusCode = 404; response.end();
+    } else response.end(artifact.get(file));
+  });
+  server.listen(0, "127.0.0.1"); await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const target = `http://127.0.0.1:${server.address().port}`;
+  const previous = [{ domain: target, path: "changelog.html", httpStatus: 404, sha256: createHash("sha256").update("").digest("hex") }];
+  assert.equal((await awaitDelivery(revision, previous, [target], 5000)).every(r => r.httpStatus === 200), true);
+  mode = "unknown";
+  await assert.rejects(awaitDelivery(revision, previous, [target], 5000), /Unexpected edge content/);
+  mode = "missing-existing";
+  await assert.rejects(awaitDelivery(revision, previous, [target], 5000), /Smoke HTTP failure.*index.html/);
+  mode = "error";
+  await assert.rejects(awaitDelivery(revision, previous, [target], 5000), /Smoke HTTP failure/);
+  mode = "absent";
+  await assert.rejects(smoke(revision, [target]), /Smoke HTTP failure/);
+  await assert.rejects(awaitDelivery(revision, previous, [target], 50), /Healthy edge convergence timed out/);
+});
+
 test("edge readiness allows only observed old bytes until exact new delivery, and fails closed otherwise", async (t) => {
   const { createHash } = require("node:crypto");
-  const { awaitDelivery } = await import("../scripts/deploy.mjs");
+  const { awaitDelivery, publicArtifact } = await import("../scripts/deploy.mjs");
   const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const artifact = publicArtifact(revision);
   const oldQuote = 'window.QUOTES = [["Prior", "published quote"]];\n';
   let mode = "transition";
   const server = createServer((request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
-    const file = pathname === "/" ? "index.html" : pathname.slice(1);
+    const file = pathname === "/" ? "index.html" : pathname === "/changelog" ? "changelog.html" : pathname.slice(1);
     if (mode === "error") {
       response.statusCode = 503;
       response.end(oldQuote);
@@ -71,7 +116,7 @@ test("edge readiness allows only observed old bytes until exact new delivery, an
       response.end(mode === "unknown" ? "unrecognized content" : oldQuote);
       if (mode === "transition") mode = "new";
     } else {
-      response.end(execFileSync("git", ["show", `${revision}:${file}`], { cwd: root }));
+      response.end(artifact.get(file));
     }
   });
   server.listen(0, "127.0.0.1");
