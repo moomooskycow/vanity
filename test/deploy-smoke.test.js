@@ -56,6 +56,16 @@ test("malformed deployment invocations fail before revision, authentication, or 
   }
 });
 
+test("the explicit PR source wins over GitHub's reserved merge revision", () => {
+  const result = spawnSync(process.execPath, ["scripts/deploy.mjs", "--smoke-only"], {
+    cwd: root, encoding: "utf8", timeout: 5000,
+    env: { ...process.env, SOURCE_SHA: "invalid-source", GITHUB_SHA: "a".repeat(40) },
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /A full Git revision is required/);
+  assert.doesNotMatch(result.stderr, /Smoke HTTP|fetch failed/);
+});
+
 test("edge readiness allows only observed old bytes until exact new delivery, and fails closed otherwise", async (t) => {
   const { createHash } = require("node:crypto");
   const { awaitDelivery, publicArtifact } = await import("../scripts/deploy.mjs");

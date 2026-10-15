@@ -173,7 +173,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   assert.ok(args.length === 0 || (args.length === 1 && ["--preflight", "--smoke-only"].includes(args[0])),
     "Usage: node scripts/deploy.mjs [--preflight | --smoke-only]; unsupported arguments");
-  const revision = process.env.GITHUB_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const revision = process.env.SOURCE_SHA ?? process.env.GITHUB_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   assert.match(revision, /^[a-f0-9]{40}$/, "A full Git revision is required");
   if (args[0] === "--smoke-only") await smoke(revision);
   else {

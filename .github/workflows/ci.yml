@@ -50,7 +50,7 @@ jobs:
       - name: Dry-run actual Worker publication and committed public artifact without credentials
         run: node scripts/deploy.mjs --preflight
         env:
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
   deploy:
     name: production deploy and smoke
