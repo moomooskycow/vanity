@@ -83,8 +83,30 @@ telemetry service, and their environment consumption have been removed. There
 are no browser config requests or ingest credentials. Historical secret inventory
 and archived Allie evidence are not active configuration and are left untouched.
 
-Provider authentication, current-master ownership, the exact active Worker version
-tag, and real delivery on both domains remain trusted-main checks. After upload,
+Provider authentication, exact checked source, authorized trunk membership,
+forward ancestry from the actual live source, active Worker version tag, and
+real delivery on both domains remain trusted-main checks. The successful native
+repo gate exports its exact checked SHA only after checks and preflight pass;
+the deployment job checks out and publishes that source. A later untested trunk
+head does not block a tested forward descendant of live. Equal live source is
+verified without republishing; older sources skip, and divergent or unproven
+sources fail before mutation.
+
+A newer tested trunk descendant blocks an older candidate even if that newer
+run failed deployment. Bounded public Actions metadata reads inspect successful
+native repo-gate jobs, including exact-source PR checks for commits now in trunk,
+rather than overall workflow conclusions or run ordering. A tested merged branch
+not included in the candidate also blocks it until a checked build includes that
+work; incomparable sources are not ordered by timestamps.
+No new credential or Actions permission is needed; failed, rate-limited or
+incomplete discovery fails closed. The existing workflow serializes publication.
+Immediately before mutation, provider deployment/version readback must still
+match the observed live identity; an observed concurrent change skips publication.
+This read is not a provider compare-and-swap guarantee (tracked separately in
+#142). Only exact delivery plus unchanged final provider identity exports a
+verified source for release metadata; a skipped unverified candidate exports none.
+The native release-note generator still requires current-head equality because
+it reads the current default branch, not an arbitrary historical candidate. After upload,
 delivery readiness is bounded to 60 seconds using unchanged URLs and exact-byte
 expectations. Only the prior HTTP-200 bytes observed immediately before publication
 may coexist temporarily with exact new bytes. For a genuinely new path absent

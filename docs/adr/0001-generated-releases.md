@@ -33,3 +33,27 @@ drill is operator evidence, not a new scheduled gate or production restore.
 `SPEC.md` is absent at adoption. `VISION.md` and the README currently describe
 the accepted page behavior; their observable stories are sampled rather than
 inventing a new product contract in release automation.
+
+
+## 2026-10-21 amendment: tested forward publication
+
+Issue #143 replaces the publication-only current-master equality check with
+exact native gate provenance, authorized trunk membership and ancestry from the
+actual live source. A tested B may publish after trunk reaches untested C; a
+newer native-tested descendant, including one whose deployment failed or whose
+exact source passed PR checks before entering trunk, supersedes B. A tested
+merged branch absent from B also blocks B rather than guessing between
+incomparable builds. Equal live source is verified idempotently, older source skips, and divergent
+or unproven source is refused. A fresh provider deployment/version read immediately
+before native publication aborts an observed concurrent change. Existing native
+workflow serialization, exact source readback and both-domain delivery remain.
+
+The release metadata generator's head check remains: release-please reads the
+current default branch, so an older tested publication must not generate metadata
+from unverified newer trunk. The deploy job exports a verified SHA only after
+exact delivery and final identity readback (or verification of equal live source),
+and the metadata job requires that SHA to match its source.
+
+This is forward-publication policy, separate from #142's blocked automatic
+recovery and independent-writer atomicity decision. No rollback implementation,
+new controller, provider permission or browser telemetry is introduced here.
