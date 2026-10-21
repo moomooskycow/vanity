@@ -30,13 +30,19 @@ documents percentage/version activation and optional force, but no conditional
 expected-current-deployment field. The pinned Wrangler 4.145.0 implementation
 also performs an unconditional POST for rollback.
 
+First readback also identifies the candidate by source tag and a changed
+deployment ID. A concurrent publisher of the same SHA can therefore be mistaken
+for this job. The eventual solution must capture the publisher's specific
+version/deployment identity. This is rollback ownership, separate from #143's
+release-promotion flaw.
+
 The draft rechecks deployment ID and sole version immediately before POST. This
 protects C arriving before that read. It cannot protect C arriving between the
 read and the write. Existing Actions concurrency serializes pipeline runs, but
 cannot serialize a local Wrangler or provider operator. Do not describe that
 check as atomic, weaken the requirement, enable the draft, or merge it without
-resolving this boundary. The explicit `concurrent-after-check` TODO regression
-fails its no-overwrite expectation and keeps this gap visible. Other passing
+resolving this boundary. The explicit `concurrent-after-check` regression fails its no-overwrite
+expectation and keeps the required repo gate red. Other passing
 checks do not satisfy this acceptance criterion.
 
 Issue #143 remains separate. This work does not repair generated release
@@ -61,6 +67,16 @@ its existing `deploy` function exported for the test. It must fail the 503 and
 unknown-byte restoration expectations. No test-only recovery logic is added to
 that baseline.
 
+The initial local canonical gate had 32 pass and one expected failing TODO;
+the independent reviewer reproduced the recovery suite with ten passing scenarios
+plus that TODO. The unresolved ownership regression is now a hard failure so a
+green gate cannot hide this missing acceptance criterion. The initial native CI
+run [39542547045](https://github.com/moomooskycow/vanity/actions/runs/39542547045)
+also exposed a Git URL portability error (checkout origin omits `.git`). The
+fixture now reads the actual origin URL and permits only the local file protocol.
+Native Wrangler dry-run plus six-file artifact HTTP preflight passed at
+`3cc1e7fa02a59415387e318e0117ea5b0160df4e`.
+
 ## Live status
 
 Read-only Cloudflare verification on 2026-10-21 found production unchanged:
@@ -74,7 +90,8 @@ Existing `vanity-staging` was discovered read-only (workers.dev enabled;
 preview URLs disabled). Its deployment is
 `88e973ee-a3b0-4600-be0d-48eb298a41c3`, version
 `d9623d22-341a-4e74-87d5-031797303ae7` at 100%.
-Neither target was mutated. Native disposable-target recovery rehearsal remains
+Neither target was mutated. A real read-only production smoke at the baseline
+source passed all twelve exact public asset checks across both public domains. Native disposable-target recovery rehearsal remains
 pending the ownership design; normal production rollout is blocked by that same
 review gate. No production recovery, provider rehearsal, merge, or deployment
 of this draft is claimed. Keep #142 open.

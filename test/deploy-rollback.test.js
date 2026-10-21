@@ -15,6 +15,7 @@ test("native deployment recovery boundary", async (t) => {
   const { deploy, publicArtifact } = await import(process.env.VANITY_DEPLOY_MODULE ?? "../scripts/deploy.mjs");
   const revision = git("rev-parse", "HEAD");
   const prior = git("rev-parse", "HEAD~1");
+  const origin = git("config", "--get", "remote.origin.url");
   const originalEnv = { ...process.env };
   const originalFetch = global.fetch;
   t.after(() => { process.env = originalEnv; global.fetch = originalFetch; });
@@ -27,7 +28,8 @@ test("native deployment recovery boundary", async (t) => {
   execFileSync("git", ["--git-dir", remote, "update-ref", "refs/heads/master", revision]);
   process.env.GIT_CONFIG_COUNT = "1";
   process.env.GIT_CONFIG_KEY_0 = `url.file://${remote}.insteadOf`;
-  process.env.GIT_CONFIG_VALUE_0 = "https://github.com/moomooskycow/vanity.git";
+  process.env.GIT_CONFIG_VALUE_0 = origin;
+  process.env.GIT_ALLOW_PROTOCOL = "file";
   const marker = join(temp, "published");
   let mode, state, writes, deliveryChecks;
   const deployment = (name) => ({ id: `deployment-${name}`, versions: [{ version_id: name, percentage: 100 }] });
@@ -80,7 +82,7 @@ test("native deployment recovery boundary", async (t) => {
     ...options, headers: { ...options.headers, "x-original-url": String(url) },
   });
   for (const scenario of ["503", "unknown", "success", "concurrent", "rollback-rejected", "rollback-bad-delivery", "incompatible", "publisher-exit", "publisher-and-readback-fail", "summary-failure", "concurrent-after-check"]) {
-    await t.test(scenario, scenario === "concurrent-after-check" ? { todo: "Merge blocked: native ownership compare-and-swap is unproven" } : {}, async () => {
+    await t.test(scenario, async () => {
       mode = scenario; state = "A"; writes = []; deliveryChecks = 0;
       if (mode === "summary-failure") process.env.GITHUB_STEP_SUMMARY = temp;
       else delete process.env.GITHUB_STEP_SUMMARY;
