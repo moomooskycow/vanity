@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/moomooskycow/vanity/compare/v1.0.0...v1.0.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **release:** promote the newest tested forward source ([7b8b5e1](https://github.com/moomooskycow/vanity/commit/7b8b5e1d7b7fe0c909f7162aa008f6d5454f97c3))
+
 ## 1.0.0 (2026-10-15)
 
 
