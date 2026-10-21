@@ -96,7 +96,6 @@ test("only a new path's exact observed prior 404 may remain pending, never count
   await assert.rejects(awaitDelivery(revision, previous, [target], 5000), /Smoke HTTP failure/);
   mode = "absent";
   await assert.rejects(smoke(revision, [target]), /Smoke HTTP failure/);
-  await assert.rejects(awaitDelivery(revision, previous, [target], 50), /Healthy edge convergence timed out/);
 });
 
 test("edge readiness allows only observed old bytes until exact new delivery, and fails closed otherwise", async (t) => {
@@ -134,6 +133,51 @@ test("edge readiness allows only observed old bytes until exact new delivery, an
   await assert.rejects(awaitDelivery(revision, prior, [target], 5000), /Unexpected edge content/);
   mode = "error";
   await assert.rejects(awaitDelivery(revision, prior, [target], 5000), /Smoke HTTP failure/);
-  mode = "old";
-  await assert.rejects(awaitDelivery(revision, prior, [target], 50), /Healthy edge convergence timed out/);
+});
+
+test("readiness deadline and transport abort reject independently of request timing", async (t) => {
+  const { createHash } = require("node:crypto");
+  const { awaitDelivery, publicArtifact } = await import("../scripts/deploy.mjs");
+  const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const artifact = publicArtifact(revision);
+  const target = "http://127.0.0.1:4174";
+  for (const [file, status, bytes] of [
+    ["quotes.js", 200, 'window.QUOTES = [["Prior", "published quote"]];\n'],
+    ["changelog.html", 404, ""],
+  ]) {
+    await t.test(`observed prior ${status} reaches the convergence deadline`, async (t) => {
+      const prior = [{ domain: target, path: file, httpStatus: status, sha256: createHash("sha256").update(bytes).digest("hex") }];
+      let now = 0;
+      const requested = [];
+      t.mock.method(Date, "now", () => now);
+      // Isolate the poll deadline from the separately tested transport abort.
+      const timeout = t.mock.method(AbortSignal, "timeout", (ms) => {
+        assert.equal(ms, 50);
+        return new AbortController().signal;
+      });
+      t.mock.method(globalThis, "fetch", async (url) => {
+        const pathname = new URL(url).pathname;
+        const path = pathname === "/" ? "index.html" : pathname === "/changelog" ? "changelog.html" : pathname.slice(1);
+        requested.push(path);
+        if (requested.length === artifact.size) now = 50;
+        return new Response(path === file ? bytes : artifact.get(path), { status: path === file ? status : 200 });
+      });
+      await assert.rejects(awaitDelivery(revision, prior, [target], 50), {
+        code: "ERR_ASSERTION", message: "Healthy edge convergence timed out",
+      });
+      assert.deepEqual(requested, [...artifact.keys()]);
+      assert.equal(timeout.mock.callCount(), artifact.size);
+    });
+  }
+  await t.test("native fetch propagates the transport timeout reason", async (t) => {
+    const reason = new DOMException("Controlled transport deadline", "TimeoutError");
+    const signal = AbortSignal.abort(reason);
+    t.mock.method(Date, "now", () => 0);
+    const timeout = t.mock.method(AbortSignal, "timeout", (ms) => {
+      assert.equal(ms, 50);
+      return signal;
+    });
+    await assert.rejects(awaitDelivery(revision, [], [target], 50), (error) => error === reason);
+    assert.equal(timeout.mock.callCount(), 1);
+  });
 });
