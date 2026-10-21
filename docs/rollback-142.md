@@ -159,3 +159,37 @@ source passed all twelve exact public asset checks across both public domains. N
 pending the ownership design; normal production rollout is blocked by that same
 review gate. No production recovery, provider rehearsal, merge, or deployment
 of this draft is claimed. Keep #142 open.
+
+## Practical single-writer option — proposed, not configured
+
+Use the existing GitHub Actions pipeline as the only supported writer. Keep its
+master concurrency group across the entire publication/recovery operation with
+cancellation disabled. A reviewed emergency `workflow_dispatch` mode would run
+native rollback to an explicit retained version under that same lock, with live
+identity, compatibility, and exact-delivery verification. Routine emergency work
+would queue there; it would not invoke local Wrangler or the console in parallel.
+
+The concrete enforcement work is outside a source-only guard: inventory every
+identity/token/integration that can mutate `vanity`, make the existing CI writer
+credential available only to its production job (a default-branch-restricted
+GitHub Environment can hold it), and remove or narrow independent mutation grants.
+Moving secrets, changing environment protections, creating/replacing credentials,
+or reducing provider access require explicit user approval. None is performed
+here. Do not revoke a shared account-wide grant without establishing its other
+consumers; if vanity-only exclusivity cannot be scoped safely, stop that action
+and present the exact affected access for decision.
+
+An exceptional console/local break-glass deploy requires an explicit operator
+handoff: suspend new CI publication, let the active writer finish, resolve any
+ambiguous in-flight operation, then authorize one temporary operator writer.
+Verify native identity and exact delivery, end that temporary write access, and
+resume CI. An unexplained timeout or unknown mutation outcome is a stop condition,
+not permission to race another writer. The normal emergency route remains the
+locked native workflow.
+
+This is a practical narrower operational boundary, not a native CAS guarantee.
+A repository-only check cannot enforce the provider-access inventory or prevent
+an account administrator from bypassing it. Acceptance of that boundary, evidence
+that independent write routes were closed, and the ambiguity/break-glass policy
+must be approved before this option could unblock #142/#144. They remain blocked
+under the original strict promise. No access or provider configuration changed.
