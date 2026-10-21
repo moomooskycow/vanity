@@ -9,6 +9,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { changelog } from "./changelog.mjs";
+import { currentTrunk, newerTested, promotionOrder } from "./promotion.mjs";
 
 const accountId = "b069014f6a46558ea9146fb6c4ff8f6c";
 const domains = ["https://phaedrus.io", "https://www.phaedrus.io"];
@@ -63,7 +64,7 @@ async function preflight(revision, directory, args) {
     console.log(JSON.stringify({
       revision, preflight: "pass", command: [process.execPath, ...args, "--dry-run"],
       publicAssets: results.length,
-      trustedMainOnly: ["provider authentication", "current master", "active Worker version tag", "both-domain delivery"],
+      trustedMainOnly: ["provider authentication", "tested trunk source and live ancestry", "active Worker version tag", "both-domain delivery"],
     }));
   } finally {
     if (server.listening) {
@@ -147,20 +148,53 @@ async function api(path) {
   return body.result;
 }
 
+function soleVersion(deployment) {
+  assert.ok(deployment?.id, "Missing live deployment identity");
+  assert.equal(deployment.versions.length, 1, "Expected one live production version");
+  assert.equal(deployment.versions[0].percentage, 100, "Live version is not fully active");
+  assert.ok(deployment.versions[0].version_id, "Missing live version identity");
+  return deployment.versions[0].version_id;
+}
+
+function verifiedSource(revision) {
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `verified_sha=${revision}\n`);
+}
+
 async function deploy(revision, args) {
+  assert.equal(process.env.CHECK_RESULT, "success", "The native repo gate and preflight must succeed");
+  assert.equal(process.env.TESTED_SHA, revision, "Candidate is not the exact tested source");
+  assert.equal(execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), revision, "Native publisher checkout differs from tested source");
   assert.ok(process.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN is required");
-  const [master] = execFileSync("git", ["ls-remote", "origin", "refs/heads/master"], { cwd: root, encoding: "utf8" }).split(/\s/);
-  assert.equal(master, revision, "Source revision is no longer master; the newer merge owns deployment");
+  const trunk = currentTrunk();
   const { deployments: previous } = await api("/deployments");
-  const priorVersion = await api(`/versions/${previous[0].versions[0].version_id}`);
+  const priorId = soleVersion(previous[0]);
+  const priorVersion = await api(`/versions/${priorId}`);
+  assert.equal(priorVersion.id, priorId, "Live version identity mismatch");
   const priorRevision = priorVersion.annotations["workers/tag"];
+  const order = promotionOrder(revision, process.env.TESTED_SHA, process.env.CHECK_RESULT, priorRevision, trunk);
+  const newer = order === "forward" ? await newerTested(revision, trunk, priorRevision) : null;
+  if (order !== "forward" || newer) {
+    await smoke(priorRevision);
+    const { deployments: current } = await api("/deployments");
+    assert.equal(current[0]?.id, previous[0].id, "Live deployment changed during skipped promotion verification");
+    assert.equal(soleVersion(current[0]), priorId, "Live version changed during skipped promotion verification");
+    console.log(JSON.stringify({ revision, promotion: "skipped", reason: newer ? "tested-trunk-source-not-included" : order, newer, live: priorRevision, deployment: previous[0].id }));
+    if (order === "already-live") verifiedSource(revision);
+    return;
+  }
   const priorArtifact = publicArtifact(priorRevision);
   const paths = [...publicArtifact(revision).keys()];
   // A missing path is permissible only when the exact prior source did not
   // contain it. Observe its real 404 bytes before mutation, never assume them.
   const absent = new Set(domains.flatMap((domain) => paths.filter((path) => !priorArtifact.has(path)).map((path) => `${domain}/${path}`)));
   const priorDelivery = await readDelivery(revision, domains, Infinity, paths, absent);
-  execFileSync(process.execPath, args, { cwd: root, stdio: "inherit" });
+  const { deployments: before } = await api("/deployments");
+  const beforeId = soleVersion(before[0]);
+  if (before[0].id !== previous[0].id || beforeId !== priorId) {
+    console.log(JSON.stringify({ revision, promotion: "skipped", reason: "live-deployment-changed", deployment: before[0].id, version: beforeId }));
+    return;
+  }
+  execFileSync(process.execPath, args, { cwd: root, stdio: "inherit", timeout: 120_000 });
   const { deployments } = await api("/deployments");
   const active = deployments[0];
   assert.equal(active.versions.length, 1, "Expected one active production version");
@@ -171,6 +205,10 @@ async function deploy(revision, args) {
   const deploymentUrl = `https://dash.cloudflare.com/${accountId}/workers/services/view/vanity/production/deployments`;
   console.log(JSON.stringify({ revision, deployment: active.id, version: versionId, previous: previous[0]?.id, deploymentUrl }));
   const results = await awaitDelivery(revision, priorDelivery);
+  const { deployments: delivered } = await api("/deployments");
+  assert.equal(delivered[0]?.id, active.id, "Publication superseded during delivery");
+  assert.equal(soleVersion(delivered[0]), versionId, "Publication version superseded during delivery");
+  verifiedSource(revision);
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY,
       `## Vanity production\n\nRevision: \`${revision}\`\n\n[Worker deployment ${active.id}](${deploymentUrl})\n\nActive version: \`${versionId}\` at 100%. Prior deployment retained: \`${previous[0]?.id}\`.\n\nPost-deploy smoke passed: ${results.length} exact public asset checks across both domains.\n`);
