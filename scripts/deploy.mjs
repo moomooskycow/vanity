@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -38,7 +38,7 @@ function deploymentArgs(directory, revision) {
   return [
     join(root, "node_modules/wrangler/bin/wrangler.js"), "deploy",
     "--config", join(root, "wrangler.jsonc"), "--assets", directory,
-    "--tag", revision, "--message", `Git revision ${revision}`,
+    "--tag", revision, "--message", `Git revision ${revision}; attempt ${randomUUID()}`,
   ];
 }
 
@@ -225,15 +225,39 @@ export async function deploy(revision, args) {
   let candidate;
   let published;
   let publicationFailure;
+  const messageIndex = args.lastIndexOf("--message");
+  assert.ok(messageIndex >= 0, "Native publication attempt message is required");
+  const attempt = args[messageIndex + 1];
+  assert.match(attempt, new RegExp(`^Git revision ${revision}; attempt [a-f0-9-]{36}$`), "Native publication attempt message is invalid");
+  const receiptDirectory = mkdtempSync(join(tmpdir(), "vanity-publication-"));
+  const receiptPath = join(receiptDirectory, "wrangler.jsonl");
   try {
-    // Read back even when Wrangler exits unsuccessfully: activation may have
-    // succeeded before its response failed. Recovery still requires identity.
+    // A source tag is not job ownership. Wrangler's private per-invocation
+    // receipt proves the exact version; the random attempt message correlates
+    // the active deployment with this invocation, including same-SHA releases.
     try {
-      execFileSync(process.execPath, args, { cwd: root, stdio: "inherit", timeout: 120_000 });
+      execFileSync(process.execPath, args, {
+        cwd: root, stdio: "inherit", timeout: 120_000,
+        env: { ...process.env, WRANGLER_OUTPUT_FILE_PATH: receiptPath },
+      });
     } catch (error) { publicationFailure = error; }
+    let receipt;
+    try {
+      const entries = readFileSync(receiptPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+      const publications = entries.filter((entry) => entry.type === "deploy");
+      assert.equal(publications.length, 1, "Expected one native publication receipt");
+      receipt = publications[0];
+      assert.equal(receipt.version, 1, "Unsupported native publication receipt");
+      assert.equal(receipt.worker_name, "vanity", "Native publication receipt target mismatch");
+      assert.match(receipt.version_id, /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/, "Native publication version identity unproven");
+    } catch (error) {
+      throw new Error(`Native publication identity unproven: ${error.message}`, { cause: error });
+    }
     const { deployments } = await api("/deployments");
     const active = deployments[0];
     const versionId = soleVersion(active);
+    assert.equal(versionId, receipt.version_id, "Candidate version superseded before readback");
+    assert.equal(active.annotations?.["workers/message"], attempt, "Candidate deployment superseded before readback");
     const version = await api(`/versions/${versionId}`);
     assert.equal(version.id, versionId, "Candidate version identity mismatch");
     assert.equal(version.annotations["workers/tag"], revision, "Cloudflare published a different source revision");
@@ -242,6 +266,9 @@ export async function deploy(revision, args) {
     if (publicationFailure) throw publicationFailure;
     console.log(JSON.stringify({ revision, deployment: active.id, version: versionId, previous: previous[0].id }));
     const results = await awaitDelivery(revision, priorDelivery);
+    const { deployments: delivered } = await api("/deployments");
+    assert.equal(delivered[0]?.id, candidate.id, "Candidate deployment superseded during delivery");
+    assert.equal(soleVersion(delivered[0]), versionId, "Candidate version superseded during delivery");
     published = { revision, deployment: active.id, version: versionId, checks: results.length };
 
   } catch (failure) {
@@ -253,6 +280,8 @@ export async function deploy(revision, args) {
     const verification = publicationFailure && failure !== publicationFailure ? `; verification failed: ${failure.message}` : "";
     summary(`Vanity publication failed: ${original.message}${verification}\nRollback: ${JSON.stringify(rollback)}\n`);
     throw new Error(`Publication failed: ${original.message}${verification}; rollback ${rollback.status}: ${rollback.reason ?? rollback.deployment}`, { cause: original });
+  } finally {
+    rmSync(receiptDirectory, { recursive: true, force: true });
   }
   summary(`Vanity production: ${published.revision}; deployment ${published.deployment}; version ${published.version} at 100%. Smoke: ${published.checks} exact public asset checks.\n`);
 }

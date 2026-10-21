@@ -64,6 +64,10 @@ the exact committed homepage, scripts, portrait, and social-card bytes on both
 smoke emits a narrow error to the existing `misty-step/vanity` Sentry project,
 whose enabled issue-stream workflows notify only `kaylee-alert-intake`.
 The Actions run retains the Worker deployment/version, prior deployment, and hashes.
+The draft recovery path correlates a private native Wrangler receipt's exact
+version UUID with a unique attempt message in deployment readback. The message
+is generated before preflight so both invocations use the same arguments.
+Missing or ambiguous native identity evidence permits no recovery write.
 
 Before merge, the credential-free CI gate runs `node scripts/deploy.mjs --preflight`.
 This materializes only the five approved public files and generated changelog from the exact Git revision
