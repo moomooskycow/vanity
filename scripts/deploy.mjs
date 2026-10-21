@@ -97,7 +97,7 @@ async function readDelivery(revision, targets, deadline, paths, absent = new Set
 
 export async function smoke(revision, targets = domains) {
   const artifact = publicArtifact(revision);
-  const results = await readDelivery(revision, targets, Infinity, [...artifact.keys()]);
+  const results = await readDelivery(revision, targets, Date.now() + 60_000, [...artifact.keys()]);
   for (const result of results) {
     assert.equal(result.sha256, digest(artifact.get(result.path)),
       `Smoke revision mismatch: ${result.domain}/${result.path}`);
@@ -135,46 +135,126 @@ export async function awaitDelivery(revision, previous, targets = domains, timeo
   }
 }
 
-async function api(path) {
+async function api(path, payload) {
   assert.ok(process.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN is required");
   const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/vanity${path}`, {
-    headers: { authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN.trim()}` },
+    method: payload ? "POST" : "GET",
+    headers: { authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN.trim()}`, "content-type": "application/json" },
+    body: payload ? JSON.stringify(payload) : undefined,
     signal: AbortSignal.timeout(30_000),
   });
-  assert.ok(response.ok, `Cloudflare GET ${path}: HTTP ${response.status}`);
+  assert.ok(response.ok, `Cloudflare ${payload ? "POST" : "GET"} ${path}: HTTP ${response.status}`);
   const body = await response.json();
   assert.equal(body.success, true, "Cloudflare API rejected version lookup");
   return body.result;
 }
 
-async function deploy(revision, args) {
+function soleVersion(deployment) {
+  assert.ok(deployment?.id, "Missing active deployment identity");
+  assert.equal(deployment.versions.length, 1, "Expected one active production version");
+  assert.equal(deployment.versions[0].percentage, 100, "Production version is not fully active");
+  assert.ok(deployment.versions[0].version_id, "Missing active version identity");
+  return deployment.versions[0].version_id;
+}
+
+function compatible(revision, priorRevision, version) {
+  // This release unit has no state or migrations. Fail closed if that changes,
+  // including a provider-only binding or a Worker/configuration source change.
+  for (const path of ["worker.js", "wrangler.jsonc"]) {
+    const source = (sha) => execFileSync("git", ["show", `${sha}:${path}`], { cwd: root });
+    assert.deepEqual(source(priorRevision), source(revision), `Rollback compatibility unproven: ${path}`);
+  }
+  assert.deepEqual(version.resources.bindings, [{ name: "ASSETS", type: "assets" }],
+    "Rollback requires the stateless assets-only Worker");
+}
+
+async function restore(revision, priorRevision, priorId, candidate) {
+  if (!candidate) return { status: "skipped", reason: "candidate identity unproven" };
+  // No force and no mutation retry: provider compatibility rejection or an
+  // ambiguous POST must stay loud. CI serializes the sole publication path.
+  const { deployments } = await api("/deployments");
+  const current = deployments[0];
+  if (current?.id !== candidate.id || soleVersion(current) !== soleVersion(candidate)) {
+    return { status: "skipped", reason: "candidate superseded" };
+  }
+  const restored = await api("/deployments", {
+    strategy: "percentage",
+    versions: [{ version_id: priorId, percentage: 100 }],
+    annotations: { "workers/message": `Automatic recovery of failed ${revision}` },
+  });
+  assert.equal(soleVersion(restored), priorId, "Rollback response version mismatch");
+  const { deployments: readback } = await api("/deployments");
+  assert.equal(readback[0]?.id, restored.id, "Rollback deployment superseded or unconfirmed");
+  assert.equal(soleVersion(readback[0]), priorId, "Rollback active version mismatch");
+  const version = await api(`/versions/${priorId}`);
+  assert.equal(version.annotations["workers/tag"], priorRevision, "Rollback source revision mismatch");
+  // Unlike publication, recovery never tolerates failed candidate bytes or errors.
+  await smoke(priorRevision);
+  const { deployments: final } = await api("/deployments");
+  assert.equal(final[0]?.id, restored.id, "Rollback superseded during delivery verification");
+  assert.equal(soleVersion(final[0]), priorId, "Rollback final version mismatch");
+  return { status: "restored", deployment: restored.id, version: priorId, revision: priorRevision };
+}
+
+function summary(message) {
+  if (!process.env.GITHUB_STEP_SUMMARY) return;
+  try { appendFileSync(process.env.GITHUB_STEP_SUMMARY, message); }
+  catch { console.error("Could not write deployment summary; inspect deployment diagnostics"); }
+}
+
+export async function deploy(revision, args) {
   assert.ok(process.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN is required");
-  const [master] = execFileSync("git", ["ls-remote", "origin", "refs/heads/master"], { cwd: root, encoding: "utf8" }).split(/\s/);
+  const [master] = execFileSync("git", ["ls-remote", "origin", "refs/heads/master"], { cwd: root, encoding: "utf8", timeout: 30_000 }).split(/\s/);
   assert.equal(master, revision, "Source revision is no longer master; the newer merge owns deployment");
   const { deployments: previous } = await api("/deployments");
-  const priorVersion = await api(`/versions/${previous[0].versions[0].version_id}`);
+  const priorId = soleVersion(previous[0]);
+  const priorVersion = await api(`/versions/${priorId}`);
+  assert.equal(priorVersion.id, priorId, "Prior version identity mismatch");
   const priorRevision = priorVersion.annotations["workers/tag"];
   const priorArtifact = publicArtifact(priorRevision);
+  compatible(revision, priorRevision, priorVersion);
+  // Prove that the recovery target was healthy before mutation. A 200 alone
+  // remains sufficient only for observing the strict publication transition.
+  await smoke(priorRevision);
   const paths = [...publicArtifact(revision).keys()];
-  // A missing path is permissible only when the exact prior source did not
-  // contain it. Observe its real 404 bytes before mutation, never assume them.
   const absent = new Set(domains.flatMap((domain) => paths.filter((path) => !priorArtifact.has(path)).map((path) => `${domain}/${path}`)));
-  const priorDelivery = await readDelivery(revision, domains, Infinity, paths, absent);
-  execFileSync(process.execPath, args, { cwd: root, stdio: "inherit" });
-  const { deployments } = await api("/deployments");
-  const active = deployments[0];
-  assert.equal(active.versions.length, 1, "Expected one active production version");
-  assert.equal(active.versions[0].percentage, 100, "Production version is not fully active");
-  const versionId = active.versions[0].version_id;
-  const version = await api(`/versions/${versionId}`);
-  assert.equal(version.annotations["workers/tag"], revision, "Cloudflare published a different source revision");
-  const deploymentUrl = `https://dash.cloudflare.com/${accountId}/workers/services/view/vanity/production/deployments`;
-  console.log(JSON.stringify({ revision, deployment: active.id, version: versionId, previous: previous[0]?.id, deploymentUrl }));
-  const results = await awaitDelivery(revision, priorDelivery);
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-      `## Vanity production\n\nRevision: \`${revision}\`\n\n[Worker deployment ${active.id}](${deploymentUrl})\n\nActive version: \`${versionId}\` at 100%. Prior deployment retained: \`${previous[0]?.id}\`.\n\nPost-deploy smoke passed: ${results.length} exact public asset checks across both domains.\n`);
+  const priorDelivery = await readDelivery(revision, domains, Date.now() + 60_000, paths, absent);
+  const { deployments: before } = await api("/deployments");
+  assert.equal(before[0]?.id, previous[0].id, "Prior deployment changed before publication");
+  assert.equal(soleVersion(before[0]), priorId, "Prior version changed before publication");
+  let candidate;
+  let published;
+  let publicationFailure;
+  try {
+    // Read back even when Wrangler exits unsuccessfully: activation may have
+    // succeeded before its response failed. Recovery still requires identity.
+    try {
+      execFileSync(process.execPath, args, { cwd: root, stdio: "inherit", timeout: 120_000 });
+    } catch (error) { publicationFailure = error; }
+    const { deployments } = await api("/deployments");
+    const active = deployments[0];
+    const versionId = soleVersion(active);
+    const version = await api(`/versions/${versionId}`);
+    assert.equal(version.id, versionId, "Candidate version identity mismatch");
+    assert.equal(version.annotations["workers/tag"], revision, "Cloudflare published a different source revision");
+    assert.notEqual(active.id, previous[0].id, "Candidate activation unproven");
+    candidate = active;
+    if (publicationFailure) throw publicationFailure;
+    console.log(JSON.stringify({ revision, deployment: active.id, version: versionId, previous: previous[0].id }));
+    const results = await awaitDelivery(revision, priorDelivery);
+    published = { revision, deployment: active.id, version: versionId, checks: results.length };
+
+  } catch (failure) {
+    let rollback;
+    try { rollback = await restore(revision, priorRevision, priorId, candidate); }
+    catch (error) { rollback = { status: "unconfirmed", reason: error.message }; }
+    console.error(JSON.stringify({ revision, publication: "failed", rollback }));
+    const original = publicationFailure ?? failure;
+    const verification = publicationFailure && failure !== publicationFailure ? `; verification failed: ${failure.message}` : "";
+    summary(`Vanity publication failed: ${original.message}${verification}\nRollback: ${JSON.stringify(rollback)}\n`);
+    throw new Error(`Publication failed: ${original.message}${verification}; rollback ${rollback.status}: ${rollback.reason ?? rollback.deployment}`, { cause: original });
   }
+  summary(`Vanity production: ${published.revision}; deployment ${published.deployment}; version ${published.version} at 100%. Smoke: ${published.checks} exact public asset checks.\n`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

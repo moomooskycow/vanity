@@ -118,9 +118,16 @@ agent-only error tagged `alert_route_probe=yes`; production stays unchanged.
 Confirm the error reaches Sentry and the Kaylee intake, not merely that sending
 returned success.
 
-The prior Worker deployment/version is retained for native version rollback.
-For recovery, use Wrangler's version rollback on `vanity`, then run the smoke
-command against the corresponding Git revision; do not weaken the byte checks.
+The recovery story is: when a newly active release fails its critical public
+checks, visitors regain the previous proven compatible version automatically,
+without overwriting a newer deployment. Publication still fails and the operator
+receives the original failure plus a separately verified recovery outcome.
+
+The implementation and source/provider evidence for issue #142 are tracked in
+[the rollback work record](docs/rollback-142.md). It remains a draft until the
+native ownership race is resolved and disposable-provider rehearsal passes.
+Current production still requires Wrangler's retained-version rollback followed
+by exact-source smoke; do not weaken the byte checks.
 
 The 2026-10-01 retirement release exposed a wrong-publication-target failure:
 DigitalOcean app `b9e45cbb-9f2a-418e-ab91-dc5a2b157c25` became ACTIVE at
