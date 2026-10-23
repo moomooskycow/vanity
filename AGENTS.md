@@ -30,3 +30,4 @@ delivery QA when root-relative assets or API routes matter; `file://` is only
 a layout preview. Reviewed merges to `master` publish automatically through CI,
 followed by both-domain smoke checks and an agent-only failure alert. This does
 not authorize promoting drafts or widening the Daybook public-data projection.
+Run `upkeep where` before dispatching.
