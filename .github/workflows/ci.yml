@@ -22,7 +22,7 @@ concurrency:
 jobs:
   title:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-ci, vanity-ci]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,7 +36,7 @@ jobs:
     outputs:
       tested_sha: ${{ steps.verified.outputs.sha }}
     name: repo gate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-ci, vanity-ci]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,7 +64,7 @@ jobs:
     name: production deploy and smoke
     needs: check
     if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-ci, vanity-ci]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
   release:
     needs: [check, deploy]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.deploy.outputs.verified_sha == github.sha
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-ci, vanity-ci]
     permissions:
       contents: write
       pull-requests: write
@@ -131,7 +131,7 @@ jobs:
     if: >-
       always() && github.ref == 'refs/heads/master' &&
       (needs.check.result == 'failure' || needs.deploy.result == 'failure' || needs.release.result == 'failure')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-ci, vanity-ci]
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4

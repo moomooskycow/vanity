@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   allie:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-ci, vanity-ci]
     steps:
       - name: Checkout Vanity
         uses: actions/checkout@v4
@@ -29,6 +29,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Set up Rust
         run: rustup update stable && rustup default stable
